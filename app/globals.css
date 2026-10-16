@@ -1,0 +1,56 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f3efe6;
+  --foreground: #1c1915;
+  --muted: #6e675f;
+  --line: #e4dcd0;
+  --surface: #fffdf8;
+  --accent: #1f6b4a;
+  --forest: #143d2c;
+  --foam: #e7f3ec;
+  --gold: #e4c27a;
+  --clay: #8f4b32;
+  --warn: #8a3d2a;
+  color-scheme: light;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-surface: var(--surface);
+  --color-accent: var(--accent);
+  --color-forest: var(--forest);
+  --color-foam: var(--foam);
+  --color-gold: var(--gold);
+  --color-clay: var(--clay);
+  --color-warn: var(--warn);
+  --font-sans: var(--font-geist-sans);
+  --font-serif: var(--font-fraunces);
+}
+
+body {
+  background:
+    radial-gradient(900px 420px at 0% -10%, rgb(31 107 74 / 0.08), transparent 60%),
+    radial-gradient(700px 360px at 100% 0%, rgb(143 75 50 / 0.07), transparent 55%),
+    var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), sans-serif;
+}
+
+::selection {
+  background: #d7ebe1;
+}
+
+a:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--foreground);
+  outline-offset: 3px;
+}
+
+input:focus-visible {
+  outline: none;
+  border-color: var(--foreground);
+}

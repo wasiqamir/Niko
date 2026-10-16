@@ -1,0 +1,160 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum AccountType {
+  HOST
+  PARTICIPANT
+}
+
+enum MeetingStatus {
+  SCHEDULED
+  DECLINED
+}
+
+enum MeetingLinkStatus {
+  SCHEDULED
+  CANCELLED
+}
+
+model User {
+  id                 String              @id @default(cuid())
+  name               String
+  email              String              @unique
+  passwordHash       String
+  accountType        AccountType
+  emailVerifiedAt      DateTime?
+  hoursReady           Boolean             @default(false)
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+  sessions             Session[]
+  verificationTokens   VerificationToken[]
+  devMails             DevMail[]
+  availability         Availability[]
+  hostedMeetings       Meeting[]           @relation("HostMeetings")
+  participantMeetings  Meeting[]           @relation("ParticipantMeetings")
+  meetingLinks         MeetingLink[]
+  meetingLinkGuests    MeetingLinkGuest[]
+}
+
+model Availability {
+  id        String @id @default(cuid())
+  hostId    String
+  host      User   @relation(fields: [hostId], references: [id], onDelete: Cascade)
+  weekday   Int
+  startHour Int
+  endHour   Int
+
+  @@index([hostId, weekday])
+}
+
+model MeetingLink {
+  id        String            @id @default(cuid())
+  hostId    String
+  host      User              @relation(fields: [hostId], references: [id], onDelete: Cascade)
+  code      String            @unique
+  title     String
+  startAt   DateTime
+  endAt     DateTime
+  capacity  Int
+  status         MeetingLinkStatus @default(SCHEDULED)
+  reminderSentAt DateTime?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  guests    MeetingLinkGuest[]
+
+  @@index([hostId, startAt])
+}
+
+model MeetingLinkGuest {
+  id            String      @id @default(cuid())
+  meetingLinkId String
+  meetingLink   MeetingLink @relation(fields: [meetingLinkId], references: [id], onDelete: Cascade)
+  participantId String
+  participant   User        @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  createdAt     DateTime    @default(now())
+
+  @@unique([meetingLinkId, participantId])
+  @@index([participantId])
+}
+
+model CallPresence {
+  id       String   @id @default(cuid())
+  roomCode String
+  peerId   String
+  userId   String
+  name     String
+  lastSeen DateTime
+
+  @@unique([roomCode, peerId])
+  @@index([roomCode, lastSeen])
+}
+
+model CallSignal {
+  id        Int      @id @default(autoincrement())
+  roomCode  String
+  fromId    String
+  toId      String
+  kind      String
+  payload   String
+  createdAt DateTime @default(now())
+
+  @@index([roomCode, id])
+}
+
+model Meeting {
+  id               String        @id @default(cuid())
+  hostId           String
+  host             User          @relation("HostMeetings", fields: [hostId], references: [id], onDelete: Cascade)
+  participantId    String
+  participant      User          @relation("ParticipantMeetings", fields: [participantId], references: [id], onDelete: Cascade)
+  startAt          DateTime
+  endAt            DateTime
+  status           MeetingStatus @default(SCHEDULED)
+  reminderSentAt   DateTime?
+  declineTokenHash String?       @unique
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@index([hostId, startAt])
+  @@index([participantId, startAt])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model DevMail {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subject   String
+  body      String
+  link      String
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
