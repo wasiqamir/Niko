@@ -67,6 +67,7 @@ async function AccountHome({
     const bookingRows: MeetingCard[] = meetings.map((meeting) => ({
       id: meeting.id,
       startAt: meeting.startAt,
+      endAt: meeting.endAt,
       tone: meeting.status === "SCHEDULED" ? "scheduled" : "closed",
       kicker: meeting.status === "SCHEDULED" ? "Booked with you" : "Closed",
       title: meeting.participant.name,
@@ -78,6 +79,7 @@ async function AccountHome({
     const linkRows: MeetingCard[] = links.map((link) => ({
       id: link.id,
       startAt: link.startAt,
+      endAt: link.endAt,
       tone: link.status === "SCHEDULED" ? "scheduled" : "closed",
       kicker:
         link.status === "SCHEDULED"
@@ -130,6 +132,7 @@ async function AccountHome({
     ...meetings.map((meeting) => ({
       id: meeting.id,
       startAt: meeting.startAt,
+      endAt: meeting.endAt,
       tone: meeting.status === "SCHEDULED" ? ("scheduled" as const) : ("closed" as const),
       kicker: meeting.status === "SCHEDULED" ? "Scheduled" : "Closed",
       title: meeting.host.name,
@@ -141,6 +144,7 @@ async function AccountHome({
     ...guestLinks.map((guest) => ({
       id: guest.id,
       startAt: guest.meetingLink.startAt,
+      endAt: guest.meetingLink.endAt,
       tone: guest.meetingLink.status === "SCHEDULED" ? ("scheduled" as const) : ("closed" as const),
       kicker: guest.meetingLink.status === "SCHEDULED" ? "You're in" : "Cancelled",
       title: guest.meetingLink.title,

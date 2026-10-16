@@ -32,6 +32,7 @@ export async function loadBookedCall(meetingId: string) {
     ok: true as const,
     title: `Meeting with ${other.name}`,
     name: user.name,
+    role: user.id === meeting.hostId ? ("host" as const) : ("participant" as const),
     startsAt: meeting.startAt.toISOString(),
   };
 }

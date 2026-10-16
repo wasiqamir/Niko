@@ -37,6 +37,7 @@ async function Room({ params }: { params: Promise<{ code: string }> }) {
       code={code}
       title={room.title}
       name={room.name}
+      role={room.role}
       startsAt={room.startsAt}
       open={Date.parse(room.startsAt) <= Date.now()}
     />

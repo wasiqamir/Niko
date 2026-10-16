@@ -30,6 +30,7 @@ export async function loadCallRoom(code: string) {
       ok: true as const,
       title: link.title,
       name: user.name,
+      role: "host" as const,
       startsAt: link.startAt.toISOString(),
     };
   }
@@ -50,6 +51,7 @@ export async function loadCallRoom(code: string) {
     ok: true as const,
     title: link.title,
     name: user.name,
+    role: "participant" as const,
     startsAt: link.startAt.toISOString(),
   };
 }
@@ -110,7 +112,7 @@ async function addGuest(
         host: link.host,
         participant: user,
         title: link.title,
-        when: formatMeetingWhen(link.startAt),
+        when: formatMeetingWhen(link.startAt, link.endAt),
         spots: `${joined} of ${link.capacity}`,
       });
     } catch {
@@ -145,13 +147,13 @@ export async function callMember(code: string) {
     const allowed =
       link.hostId === user.id || link.guests.some((guest) => guest.participantId === user.id);
     if (!allowed) return null;
-    return { user };
+    return { user, hostId: link.hostId };
   }
 
   const meeting = await prisma.meeting.findUnique({ where: { id: code } });
   if (!meeting || meeting.status !== "SCHEDULED") return null;
   if (meeting.hostId !== user.id && meeting.participantId !== user.id) return null;
-  return { user };
+  return { user, hostId: meeting.hostId };
 }
 
 export async function freshPeers(roomCode: string) {

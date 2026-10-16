@@ -26,6 +26,14 @@ export const loginSchema = z.object({
   password: z.string().min(1, "Enter your password."),
 });
 
+export const resetPasswordSchema = z.object({
+  password: z
+    .string()
+    .min(8, "Use at least 8 characters.")
+    .max(128, "Use 128 characters or fewer."),
+  confirmPassword: z.string(),
+});
+
 export type AuthState = {
   error?: string;
   email?: string;

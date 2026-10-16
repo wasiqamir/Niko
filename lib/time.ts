@@ -122,6 +122,36 @@ export function formatRange(start: Date) {
   return `${formatClock(hour)}–${formatClock((hour + 1) % 24)}`;
 }
 
+export function parseClock(value: string) {
+  const text = value
+    .trim()
+    .toLowerCase()
+    .replace(/(\d)\.(\d{2})\b/g, "$1:$2")
+    .replace(/\./g, "")
+    .replace(/\s+/g, " ");
+  const match = text.match(/^(\d{1,2})(?::(\d{2}))?(?::\d{2})?\s*(am|pm)?$/);
+  if (!match) return null;
+
+  let hour = Number(match[1]);
+  const minute = match[2] === undefined ? 0 : Number(match[2]);
+  const suffix = match[3];
+  if (minute > 59) return null;
+
+  if (suffix) {
+    if (hour < 1 || hour > 12) return null;
+    if (suffix === "am") hour = hour === 12 ? 0 : hour;
+    if (suffix === "pm") hour = hour === 12 ? 12 : hour + 12;
+  } else if (hour !== 0 && (hour <= 12 || hour > 23)) {
+    return null;
+  }
+
+  return { hour, minute };
+}
+
+export function formatSpan(start: Date, end: Date) {
+  return `${formatMinuteClock(start)}–${formatMinuteClock(end)}`;
+}
+
 export function formatDayLabel(key: string) {
   const [year, month, day] = key.split("-").map(Number);
   return new Intl.DateTimeFormat("en-GB", {
@@ -132,7 +162,8 @@ export function formatDayLabel(key: string) {
   }).format(zonedDate(year, month, day, 12));
 }
 
-export function formatMeetingWhen(start: Date) {
+export function formatMeetingWhen(start: Date, end?: Date) {
+  const finish = end ?? new Date(start.getTime() + 60 * 60 * 1000);
   const date = new Intl.DateTimeFormat("en-GB", {
     timeZone: TIME_ZONE,
     weekday: "long",
@@ -140,5 +171,5 @@ export function formatMeetingWhen(start: Date) {
     month: "long",
     year: "numeric",
   }).format(start);
-  return `${date}, ${formatRange(start)} (${TIME_ZONE_LABEL})`;
+  return `${date}, ${formatSpan(start, finish)} (${TIME_ZONE_LABEL})`;
 }

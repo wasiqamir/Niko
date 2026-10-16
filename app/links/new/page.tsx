@@ -4,8 +4,8 @@ import { connection } from "next/server";
 import { AccountHeader } from "@/components/account-header";
 import { CreateLinkForm } from "@/components/create-link-form";
 import { getCurrentUser } from "@/lib/auth";
-import { hoursForHost } from "@/lib/schedule";
-import { addDays, formatDayLabel, formatRange, parseDateKey, todayKey } from "@/lib/time";
+import { busyBlocks } from "@/lib/schedule";
+import { addDays, formatDayLabel, formatSpan, parseDateKey, slotStart, todayKey } from "@/lib/time";
 
 export const metadata = {
   title: "Create a meeting link",
@@ -50,29 +50,26 @@ async function Planner({
   const today = todayKey(now);
   const date = requested && requested >= today ? requested : today;
   const days = Array.from({ length: 14 }, (_, index) => addDays(today, index));
-  const slots = await hoursForHost(user.id, date, now);
+  const held = await busyBlocks(user.id, slotStart(date, 0), slotStart(date, 24));
 
   return (
     <div>
       <p className="text-xs uppercase tracking-[0.22em] text-accent">New meeting</p>
       <h1 className="mt-3 font-serif text-4xl tracking-tight sm:text-5xl">Hold a time, then share the link.</h1>
       <p className="mt-3 max-w-xl text-base leading-7 text-muted">
-        Pick the day, the hour, and how many people can join. Niko keeps that hour for this meeting.
-        A participant who searches your email will see it as booked.
+        Pick the day, write the start and end, and choose how many people can join. Niko keeps that
+        time for this meeting. A participant who searches your email will see it as booked.
       </p>
       <section className="mt-8 rounded-[2rem] border border-line bg-surface p-6 sm:p-8">
         <CreateLinkForm
+          date={date}
           dateLabel={formatDayLabel(date)}
+          held={held.map((block) => formatSpan(block.startAt, block.endAt))}
           days={days.map((day) => ({
             key: day,
             label: formatDayLabel(day),
             href: `/links/new?date=${day}`,
             selected: day === date,
-          }))}
-          slots={slots.map((slot) => ({
-            start: slot.start.toISOString(),
-            label: formatRange(slot.start),
-            state: slot.past ? "past" : slot.booked ? "booked" : "open",
           }))}
         />
       </section>

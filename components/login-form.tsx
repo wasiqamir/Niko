@@ -35,6 +35,11 @@ export function LoginForm({ nextPath }: { nextPath?: string }) {
           required
           error={firstError(state.fieldErrors?.password)}
         />
+        <p className="text-right text-sm">
+          <Link href="/forgot-password" className="font-medium underline underline-offset-4">
+            Forgot password?
+          </Link>
+        </p>
         {state.error ? <Notice tone="error">{state.error}</Notice> : null}
         <SubmitButton pendingLabel="Logging in…">Log in</SubmitButton>
       </form>

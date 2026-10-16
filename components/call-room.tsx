@@ -4,9 +4,20 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { formatMinuteClock, TIME_ZONE_LABEL } from "@/lib/time";
 
-type Peer = { peerId: string; name: string };
+type Role = "host" | "participant";
+type Peer = { peerId: string; name: string; role?: Role };
 type Signal = { id: number; fromId: string; kind: string; payload: string };
-type Remote = { peerId: string; name: string; stream: MediaStream };
+type Remote = { peerId: string; name: string; role: Role; stream: MediaStream; revision: number };
+type Seat = {
+  key: string;
+  name: string;
+  stream: MediaStream | null;
+  revision: number;
+  hear: boolean;
+  mirror: boolean;
+  cameraOn: boolean;
+  waiting: boolean;
+};
 
 const ICE_SERVERS: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];
 
@@ -14,6 +25,7 @@ export function CallRoom({
   code,
   title,
   name,
+  role,
   startsAt,
   open = false,
   leaveHref = `/m/${code}`,
@@ -21,11 +33,11 @@ export function CallRoom({
   code: string;
   title: string;
   name: string;
+  role: Role;
   startsAt: string;
   open?: boolean;
   leaveHref?: string;
 }) {
-  const startMs = new Date(startsAt).getTime();
   const [started, setStarted] = useState(open);
   const selfId = useRef("");
   if (!selfId.current) selfId.current = crypto.randomUUID();
@@ -35,13 +47,19 @@ export function CallRoom({
   const [cameraOn, setCameraOn] = useState(true);
   const [status, setStatus] = useState("Opening your camera and microphone…");
   const [alone, setAlone] = useState(true);
+  const [needSound, setNeedSound] = useState(false);
+  const soundBlocked = useRef(() => setNeedSound(true));
+  const soundReady = useRef(() => setNeedSound(false));
 
   useEffect(() => {
     if (!started) return;
     const peerId = selfId.current;
     const pcs = new Map<string, RTCPeerConnection>();
     const names = new Map<string, string>();
+    const roles = new Map<string, Role>();
+    const streams = new Map<string, MediaStream>();
     const iceQueue = new Map<string, RTCIceCandidateInit[]>();
+    const restarted = new Set<string>();
     let stream: MediaStream | null = null;
     let after = 0;
     let cancelled = false;
@@ -69,10 +87,57 @@ export function CallRoom({
       stream?.getTracks().forEach((track) => track.stop());
     }
 
+    function publish(remoteId: string) {
+      const remoteStream = streams.get(remoteId);
+      if (!remoteStream) return;
+      setRemotes((current) => {
+        const previous = current.find((item) => item.peerId === remoteId);
+        const next: Remote = {
+          peerId: remoteId,
+          name: names.get(remoteId) ?? previous?.name ?? "Guest",
+          role: roles.get(remoteId) ?? previous?.role ?? "participant",
+          stream: remoteStream,
+          revision: (previous?.revision ?? 0) + 1,
+        };
+        return [...current.filter((item) => item.peerId !== remoteId), next];
+      });
+    }
+
+    async function tune(pc: RTCPeerConnection) {
+      await Promise.all(
+        pc.getSenders().map(async (sender) => {
+          const track = sender.track;
+          if (!track) return;
+          const params = sender.getParameters();
+          if (!params.encodings?.length) params.encodings = [{}];
+          const encoding = params.encodings[0];
+          if (track.kind === "video") {
+            track.contentHint = "motion";
+            params.degradationPreference = "maintain-framerate";
+            encoding.maxBitrate = 2_500_000;
+            encoding.maxFramerate = 30;
+            encoding.scaleResolutionDownBy = 1;
+          } else {
+            track.contentHint = "speech";
+            encoding.maxBitrate = 128_000;
+          }
+          try {
+            await sender.setParameters(params);
+          } catch {
+            // The browser accepts these settings once the connection is up.
+          }
+        }),
+      );
+    }
+
     function makePeer(remoteId: string) {
       const existing = pcs.get(remoteId);
       if (existing) return existing;
-      const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+      const pc = new RTCPeerConnection({
+        iceServers: ICE_SERVERS,
+        bundlePolicy: "max-bundle",
+        rtcpMuxPolicy: "require",
+      });
       pcs.set(remoteId, pc);
       stream?.getTracks().forEach((track) => pc.addTrack(track, stream as MediaStream));
       pc.onicecandidate = (event) => {
@@ -84,12 +149,27 @@ export function CallRoom({
         });
       };
       pc.ontrack = (event) => {
-        const remoteStream = event.streams[0];
-        if (!remoteStream) return;
-        setRemotes((current) => [
-          ...current.filter((item) => item.peerId !== remoteId),
-          { peerId: remoteId, name: names.get(remoteId) ?? "Guest", stream: remoteStream },
-        ]);
+        const remoteStream = streams.get(remoteId) ?? new MediaStream();
+        streams.set(remoteId, remoteStream);
+        const incoming = event.track;
+        if (!remoteStream.getTracks().some((track) => track.id === incoming.id)) {
+          remoteStream.addTrack(incoming);
+        }
+        incoming.onunmute = () => publish(remoteId);
+        incoming.onmute = () => publish(remoteId);
+        publish(remoteId);
+      };
+      pc.onconnectionstatechange = () => {
+        if (pc.connectionState === "connected") void tune(pc);
+        if (
+          pc.connectionState === "failed" &&
+          peerId < remoteId &&
+          !restarted.has(remoteId) &&
+          !cancelled
+        ) {
+          restarted.add(remoteId);
+          void createOffer(remoteId, true);
+        }
       };
       return pc;
     }
@@ -98,17 +178,27 @@ export function CallRoom({
       const pc = pcs.get(remoteId);
       const queued = iceQueue.get(remoteId) ?? [];
       iceQueue.delete(remoteId);
-      if (!pc) return;
+      if (!pc?.remoteDescription) return;
       for (const candidate of queued) {
-        await pc.addIceCandidate(candidate);
+        try {
+          await pc.addIceCandidate(candidate);
+        } catch {
+          // A late candidate from a replaced offer can be ignored.
+        }
       }
     }
 
-    async function createOffer(remoteId: string) {
+    async function createOffer(remoteId: string, iceRestart = false) {
       const pc = makePeer(remoteId);
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-      await post({ toId: remoteId, kind: "offer", payload: JSON.stringify(offer) });
+      if (!iceRestart && pc.signalingState !== "stable") return;
+      try {
+        const offer = await pc.createOffer(iceRestart ? { iceRestart: true } : undefined);
+        await pc.setLocalDescription(offer);
+        await tune(pc);
+        await post({ toId: remoteId, kind: "offer", payload: JSON.stringify(offer) });
+      } catch {
+        // The next poll tries again if this offer did not land.
+      }
     }
 
     async function handleSignal(signal: Signal) {
@@ -121,7 +211,11 @@ export function CallRoom({
           iceQueue.set(signal.fromId, queued);
           return;
         }
-        await pc.addIceCandidate(candidate);
+        try {
+          await pc.addIceCandidate(candidate);
+        } catch {
+          // Ignore a candidate that arrived for an old description.
+        }
         return;
       }
 
@@ -137,6 +231,7 @@ export function CallRoom({
         await flushIce(signal.fromId);
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
+        await tune(pc);
         await post({ toId: signal.fromId, kind: "answer", payload: JSON.stringify(answer) });
         return;
       }
@@ -146,20 +241,34 @@ export function CallRoom({
         if (!pc || pc.signalingState !== "have-local-offer") return;
         await pc.setRemoteDescription(JSON.parse(signal.payload) as RTCSessionDescriptionInit);
         await flushIce(signal.fromId);
+        await tune(pc);
       }
     }
 
     function syncPeers(peers: Peer[]) {
       names.clear();
-      for (const peer of peers) names.set(peer.peerId, peer.name);
-      setRemotes((current) =>
-        current.map((item) => ({ ...item, name: names.get(item.peerId) ?? item.name })),
-      );
+      roles.clear();
+      for (const peer of peers) {
+        names.set(peer.peerId, peer.name);
+        roles.set(peer.peerId, peer.role === "host" ? "host" : "participant");
+      }
+      setRemotes((current) => {
+        let changed = false;
+        const next = current.map((item) => {
+          const nextName = names.get(item.peerId) ?? item.name;
+          const nextRole = roles.get(item.peerId) ?? item.role;
+          if (nextName === item.name && nextRole === item.role) return item;
+          changed = true;
+          return { ...item, name: nextName, role: nextRole };
+        });
+        return changed ? next : current;
+      });
       const live = new Set(peers.map((peer) => peer.peerId));
       for (const [remoteId, pc] of pcs) {
         if (!live.has(remoteId)) {
           pc.close();
           pcs.delete(remoteId);
+          streams.delete(remoteId);
           setRemotes((current) => current.filter((item) => item.peerId !== remoteId));
         }
       }
@@ -200,14 +309,19 @@ export function CallRoom({
       } catch {
         if (!cancelled) setStatus("Reconnecting…");
       }
-      if (!cancelled) timer = window.setTimeout(loop, 800);
+      if (!cancelled) timer = window.setTimeout(loop, 400);
     }
 
     async function start() {
       try {
         stream = await navigator.mediaDevices.getUserMedia({
-          audio: { echoCancellation: true, noiseSuppression: true },
-          video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+          video: {
+            facingMode: "user",
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            frameRate: { ideal: 30, max: 30 },
+          },
         });
       } catch {
         try {
@@ -222,21 +336,21 @@ export function CallRoom({
         stream.getTracks().forEach((track) => track.stop());
         return;
       }
+      for (const track of stream.getTracks()) {
+        track.contentHint = track.kind === "video" ? "motion" : "speech";
+      }
       setLocalStream(stream);
       setStatus("");
       void loop();
     }
 
-    const onHide = () => {
-      if (document.visibilityState === "hidden") leave();
-    };
-    window.addEventListener("pagehide", onHide);
+    window.addEventListener("pagehide", leave);
     void start();
 
     return () => {
       cancelled = true;
       window.clearTimeout(timer);
-      window.removeEventListener("pagehide", onHide);
+      window.removeEventListener("pagehide", leave);
       leave();
     };
   }, [code, started]);
@@ -257,9 +371,66 @@ export function CallRoom({
     setCameraOn(next);
   }
 
+  function enableSound() {
+    const clips = Array.from(document.querySelectorAll("audio"));
+    if (clips.length === 0) {
+      setNeedSound(false);
+      return;
+    }
+    void Promise.all(
+      clips.map((node) => {
+        const audio = node as HTMLAudioElement;
+        audio.muted = false;
+        audio.volume = 1;
+        return audio.play();
+      }),
+    )
+      .then(() => setNeedSound(false))
+      .catch(() => setNeedSound(true));
+    document.querySelectorAll("video").forEach((node) => {
+      void (node as HTMLVideoElement).play().catch(() => undefined);
+    });
+  }
+
   if (!started) {
     return <Lobby title={title} startsAt={startsAt} leaveHref={leaveHref} onStart={() => setStarted(true)} />;
   }
+
+  const hostRemote = remotes.find((item) => item.role === "host");
+  const participantRemotes = remotes.filter((item) => item.role !== "host");
+  const selfSeat = {
+    key: "self",
+    name,
+    stream: localStream,
+    revision: 0,
+    hear: false,
+    mirror: true,
+    cameraOn,
+    waiting: false,
+  };
+  const hostSeat: Seat =
+    role === "host"
+      ? selfSeat
+      : hostRemote
+        ? {
+            key: hostRemote.peerId,
+            name: hostRemote.name,
+            stream: hostRemote.stream,
+            revision: hostRemote.revision,
+            hear: true,
+            mirror: false,
+            cameraOn: true,
+            waiting: false,
+          }
+        : emptySeat("host-wait");
+  const participantSeats: Seat[] =
+    role === "participant"
+      ? [
+          selfSeat,
+          ...participantRemotes.map((item) => remoteSeat(item)),
+        ]
+      : participantRemotes.map((item) => remoteSeat(item));
+  if (participantSeats.length === 0) participantSeats.push(emptySeat("participant-wait"));
 
   return (
     <div className="flex min-h-screen flex-col bg-[#10241c] text-background">
@@ -268,21 +439,45 @@ export function CallRoom({
           <p className="text-xs uppercase tracking-[0.18em] text-gold">Live room</p>
           <h1 className="font-serif text-2xl tracking-tight">{title}</h1>
         </div>
-        <p className="text-sm text-background/70">{alone ? "Waiting for others" : `${remotes.length + 1} here`}</p>
+        <p className="text-sm text-background/70">{alone ? "Waiting for the other person" : `${remotes.length + 1} here`}</p>
       </header>
 
-      <div className="grid flex-1 content-start gap-3 px-5 pb-28 sm:grid-cols-2">
-        <Tile stream={localStream} label={`${name} (you)`} muted mirror cameraOn={cameraOn} />
-        {remotes.map((remote) => (
-          <Tile key={remote.peerId} stream={remote.stream} label={remote.name} cameraOn />
-        ))}
+      <div className="flex flex-1 px-4 pb-32 sm:px-5">
+        <div className="relative grid h-full min-h-[32rem] w-full grid-cols-2 overflow-hidden rounded-[28px] bg-black">
+          <Pane
+            seat={hostSeat}
+            position="Host"
+            onSoundBlocked={() => soundBlocked.current()}
+            onSoundReady={() => soundReady.current()}
+          />
+          <div className="flex min-h-0 min-w-0 flex-col border-l-2 border-white">
+            {participantSeats.map((seat) => (
+              <Pane
+                key={seat.key}
+                seat={seat}
+                position="Participant"
+                onSoundBlocked={() => soundBlocked.current()}
+                onSoundReady={() => soundReady.current()}
+              />
+            ))}
+          </div>
+          {needSound ? (
+            <button
+              type="button"
+              onClick={enableSound}
+              className="absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 rounded-full bg-gold px-6 py-3 text-sm font-medium text-foreground"
+            >
+              Turn on sound
+            </button>
+          ) : null}
+        </div>
       </div>
 
       {status ? (
         <p className="fixed bottom-24 left-0 right-0 px-5 text-center text-sm text-gold">{status}</p>
       ) : null}
 
-      <div className="fixed inset-x-0 bottom-0 flex items-center justify-center gap-3 bg-[#10241c]/90 px-5 py-4">
+      <div className="fixed inset-x-0 bottom-0 flex flex-wrap items-center justify-center gap-3 bg-[#10241c]/90 px-5 py-4">
         <button
           type="button"
           onClick={toggleMic}
@@ -308,41 +503,119 @@ export function CallRoom({
   );
 }
 
-function Tile({
-  stream,
-  label,
-  muted = false,
-  mirror = false,
-  cameraOn,
+function remoteSeat(item: Remote): Seat {
+  return {
+    key: item.peerId,
+    name: item.name,
+    stream: item.stream,
+    revision: item.revision,
+    hear: true,
+    mirror: false,
+    cameraOn: true,
+    waiting: false,
+  };
+}
+
+function emptySeat(key: string): Seat {
+  return {
+    key,
+    name: "Waiting",
+    stream: null,
+    revision: 0,
+    hear: false,
+    mirror: false,
+    cameraOn: false,
+    waiting: true,
+  };
+}
+
+function Pane({
+  seat,
+  position,
+  onSoundBlocked,
+  onSoundReady,
 }: {
-  stream: MediaStream | null;
-  label: string;
-  muted?: boolean;
-  mirror?: boolean;
-  cameraOn: boolean;
+  seat: Seat;
+  position: "Host" | "Participant";
+  onSoundBlocked: () => void;
+  onSoundReady: () => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  useEffect(() => {
-    if (videoRef.current) videoRef.current.srcObject = stream;
-  }, [stream]);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const blocked = useRef(onSoundBlocked);
+  const ready = useRef(onSoundReady);
+  blocked.current = onSoundBlocked;
+  ready.current = onSoundReady;
 
-  const showVideo = Boolean(stream?.getVideoTracks().some((track) => track.readyState === "live") && cameraOn);
+  useEffect(() => {
+    const video = videoRef.current;
+    const audio = audioRef.current;
+    const stream = seat.stream;
+    if (video) {
+      video.muted = true;
+      video.srcObject = stream;
+      void video.play().catch(() => undefined);
+    }
+    const playSound = () => {
+      if (!audio || !seat.hear || !stream) return;
+      audio.srcObject = stream;
+      audio.muted = false;
+      audio.volume = 1;
+      void audio
+        .play()
+        .then(() => ready.current())
+        .catch(() => blocked.current());
+    };
+    playSound();
+
+    const wake = () => {
+      void video?.play().catch(() => undefined);
+      playSound();
+    };
+    const tracks = stream?.getTracks() ?? [];
+    for (const track of tracks) {
+      track.addEventListener("unmute", wake);
+      track.addEventListener("mute", wake);
+    }
+    const keep = window.setInterval(() => {
+      if (video && video.paused && video.srcObject) void video.play().catch(() => undefined);
+    }, 1000);
+    return () => {
+      window.clearInterval(keep);
+      for (const track of tracks) {
+        track.removeEventListener("unmute", wake);
+        track.removeEventListener("mute", wake);
+      }
+    };
+  }, [seat.stream, seat.revision, seat.hear]);
+
+  const liveVideo = Boolean(
+    seat.cameraOn &&
+      seat.stream?.getVideoTracks().some((track) => track.readyState === "live" && track.enabled && !track.muted),
+  );
+  const initial = seat.waiting ? "…" : seat.name.slice(0, 1).toUpperCase();
 
   return (
-    <div className="relative aspect-video overflow-hidden rounded-3xl bg-black">
-      <video
-        ref={videoRef}
-        autoPlay
-        playsInline
-        muted={muted}
-        className={`h-full w-full object-cover ${mirror ? "-scale-x-100" : ""} ${showVideo ? "" : "hidden"}`}
-      />
-      {showVideo ? null : (
-        <div className="flex h-full items-center justify-center font-serif text-4xl text-gold">
-          {label.replace(" (you)", "").slice(0, 1).toUpperCase()}
-        </div>
-      )}
-      <span className="absolute bottom-3 left-3 rounded-full bg-black/55 px-3 py-1 text-sm">{label}</span>
+    <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col bg-black">
+      <div className="relative min-h-40 flex-1">
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          className={`absolute inset-0 h-full w-full object-cover ${seat.mirror ? "-scale-x-100" : ""}`}
+        />
+        {seat.hear ? <audio ref={audioRef} autoPlay className="absolute h-px w-px" /> : null}
+        {liveVideo ? null : (
+          <div className="absolute inset-0 flex items-center justify-center bg-[#10241c] font-serif text-5xl text-gold">
+            {initial}
+          </div>
+        )}
+      </div>
+      <div className="border-t border-white/15 bg-[#0c1a14] px-4 py-3 text-center">
+        <p className="truncate text-base font-medium">{seat.name}</p>
+        <p className="mt-0.5 text-xs uppercase tracking-[0.16em] text-gold">{position}</p>
+      </div>
     </div>
   );
 }
@@ -418,22 +691,22 @@ function formatRemaining(ms: number) {
 
 function ring() {
   try {
-  const audio = new AudioContext();
-  void audio.resume();
-  [523, 659, 784].forEach((frequency, index) => {
-    const tone = audio.createOscillator();
-    const gain = audio.createGain();
-    const at = audio.currentTime + index * 0.16;
-    tone.frequency.value = frequency;
-    tone.type = "sine";
-    gain.gain.setValueAtTime(0.0001, at);
-    gain.gain.exponentialRampToValueAtTime(0.07, at + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.28);
-    tone.connect(gain).connect(audio.destination);
-    tone.start(at);
-    tone.stop(at + 0.3);
-  });
-  window.setTimeout(() => void audio.close(), 1200);
+    const audio = new AudioContext();
+    void audio.resume();
+    [523, 659, 784].forEach((frequency, index) => {
+      const tone = audio.createOscillator();
+      const gain = audio.createGain();
+      const at = audio.currentTime + index * 0.16;
+      tone.frequency.value = frequency;
+      tone.type = "sine";
+      gain.gain.setValueAtTime(0.0001, at);
+      gain.gain.exponentialRampToValueAtTime(0.07, at + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.28);
+      tone.connect(gain).connect(audio.destination);
+      tone.start(at);
+      tone.stop(at + 0.3);
+    });
+    window.setTimeout(() => void audio.close(), 1200);
   } catch {
     // The meeting still opens if this browser blocks the chime.
   }

@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { hashToken, randomToken } from "@/lib/tokens";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+const HOUR_MS = 60 * 60 * 1000;
 
 export function usesDevMailbox() {
   return process.env.NODE_ENV !== "production" && !process.env.SMTP_HOST;
@@ -113,6 +114,47 @@ export async function sendAccountVerification(user: Recipient) {
     to: user.email,
     subject,
     text: body,
+    userId: user.id,
+    link,
+  });
+}
+
+export async function sendPasswordReset(user: Recipient) {
+  await prisma.passwordResetToken.deleteMany({ where: { userId: user.id } });
+
+  const token = randomToken();
+  await prisma.passwordResetToken.create({
+    data: {
+      userId: user.id,
+      tokenHash: hashToken(token),
+      expiresAt: new Date(Date.now() + HOUR_MS),
+    },
+  });
+
+  const link = `${appUrl()}/reset-password?token=${encodeURIComponent(token)}`;
+  const subject = "Set a new Niko password";
+  const text = [
+    `Hi ${user.name},`,
+    "",
+    "Set a new password for your Niko account:",
+    link,
+    "",
+    "This link expires in 1 hour. It changes your password only after you press the button on that page.",
+    "If you did not ask for this, you can ignore this email.",
+  ].join("\n");
+  const html = `
+    <p>Hi ${escapeHtml(user.name)},</p>
+    <p>Set a new password for your Niko account.</p>
+    <p><a href="${escapeHtml(link)}">Set a new password</a></p>
+    <p>This link expires in 1 hour. It changes your password only after you press the button on that page.</p>
+    <p>If you did not ask for this, you can ignore this email.</p>
+  `;
+
+  await deliver({
+    to: user.email,
+    subject,
+    text,
+    html,
     userId: user.id,
     link,
   });

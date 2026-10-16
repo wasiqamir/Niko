@@ -10,11 +10,19 @@ import { TextField } from "@/components/text-field";
 const initialState: LinkState = {};
 
 type Day = { key: string; label: string; href: string; selected: boolean };
-type Slot = { start: string; label: string; state: "open" | "booked" | "past" };
 
-export function CreateLinkForm({ days, slots, dateLabel }: { days: Day[]; slots: Slot[]; dateLabel: string }) {
+export function CreateLinkForm({
+  days,
+  date,
+  dateLabel,
+  held,
+}: {
+  days: Day[];
+  date: string;
+  dateLabel: string;
+  held: string[];
+}) {
   const [state, action] = useActionState(createMeetingLink, initialState);
-  const openSlots = slots.some((slot) => slot.state === "open");
 
   return (
     <div>
@@ -33,33 +41,47 @@ export function CreateLinkForm({ days, slots, dateLabel }: { days: Day[]; slots:
       </div>
 
       <form action={action} className="mt-6 flex flex-col gap-5">
+        <input type="hidden" name="date" value={date} />
         <fieldset>
           <legend className="font-serif text-2xl tracking-tight">{dateLabel}</legend>
-          <p className="mt-1 text-sm text-muted">One hour, Pakistan time. A booked hour stays closed.</p>
-          <div className="mt-4 grid gap-2 sm:grid-cols-2">
-            {slots.map((slot) =>
-              slot.state === "open" ? (
-                <label
-                  key={slot.start}
-                  className="flex cursor-pointer items-center justify-between rounded-2xl border border-line bg-background px-4 py-3 text-sm has-[:checked]:border-forest has-[:checked]:bg-foam"
-                >
-                  <span>{slot.label}</span>
-                  <input type="radio" name="start" value={slot.start} required className="accent-forest" />
-                </label>
-              ) : (
-                <div
-                  key={slot.start}
-                  className="flex items-center justify-between rounded-2xl border border-line px-4 py-3 text-sm text-muted"
-                >
-                  <span>{slot.label}</span>
-                  <span className={slot.state === "booked" ? "text-clay" : ""}>
-                    {slot.state === "booked" ? "Booked" : "Passed"}
-                  </span>
-                </div>
-              ),
-            )}
+          <p className="mt-1 text-sm text-muted">
+            Write the start and end in Pakistan time, such as 10:10 PM to 11:10 PM. A time that overlaps
+            another meeting stays closed.
+          </p>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <TextField
+              label="Start time"
+              name="startTime"
+              required
+              maxLength={20}
+              placeholder="10:10 PM"
+              defaultValue={state.startTime}
+              autoComplete="off"
+            />
+            <TextField
+              label="End time"
+              name="endTime"
+              required
+              maxLength={20}
+              placeholder="11:10 PM"
+              defaultValue={state.endTime}
+              autoComplete="off"
+            />
           </div>
         </fieldset>
+
+        {held.length > 0 ? (
+          <div>
+            <p className="text-sm font-medium">Already held this day</p>
+            <ul className="mt-2 flex flex-col gap-1">
+              {held.map((label, index) => (
+                <li key={`${label}-${index}`} className="text-sm text-muted">
+                  {label}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
 
         <TextField label="Meeting name" name="title" required maxLength={80} placeholder="Client workshop" />
         <TextField
@@ -72,11 +94,7 @@ export function CreateLinkForm({ days, slots, dateLabel }: { days: Day[]; slots:
           defaultValue="5"
         />
         {state.error ? <Notice tone="error">{state.error}</Notice> : null}
-        {openSlots ? (
-          <SubmitButton pendingLabel="Creating…">Create link</SubmitButton>
-        ) : (
-          <p className="text-sm text-muted">Every hour on this day is already held.</p>
-        )}
+        <SubmitButton pendingLabel="Creating…">Create link</SubmitButton>
       </form>
     </div>
   );

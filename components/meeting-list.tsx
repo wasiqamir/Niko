@@ -7,6 +7,7 @@ import { formatMeetingWhen } from "@/lib/time";
 export type MeetingCard = {
   id: string;
   startAt: Date;
+  endAt?: Date;
   tone: "scheduled" | "closed";
   kicker: string;
   title: string;
@@ -37,7 +38,7 @@ export function MeetingList({ meetings, empty }: { meetings: MeetingCard[]; empt
           }`}
         >
           <p className="text-xs uppercase tracking-[0.16em] text-muted">{meeting.kicker}</p>
-          <p className="mt-1 font-medium">{formatMeetingWhen(meeting.startAt)}</p>
+          <p className="mt-1 font-medium">{formatMeetingWhen(meeting.startAt, meeting.endAt)}</p>
           <p className="mt-1 text-sm">{meeting.title}</p>
           {meeting.detail ? <p className="mt-1 text-sm text-muted">{meeting.detail}</p> : null}
           {meeting.note ? <p className="mt-2 text-sm text-clay">{meeting.note}</p> : null}

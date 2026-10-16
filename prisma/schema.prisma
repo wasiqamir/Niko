@@ -34,6 +34,7 @@ model User {
   updatedAt            DateTime            @updatedAt
   sessions             Session[]
   verificationTokens   VerificationToken[]
+  passwordResetTokens  PasswordResetToken[]
   devMails             DevMail[]
   availability         Availability[]
   hostedMeetings       Meeting[]           @relation("HostMeetings")
@@ -137,6 +138,17 @@ model Session {
 }
 
 model VerificationToken {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model PasswordResetToken {
   id        String   @id @default(cuid())
   tokenHash String   @unique
   userId    String

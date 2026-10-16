@@ -90,7 +90,7 @@ export async function sendDueReminders(now = new Date()) {
     });
     if (claimed.count !== 1) continue;
 
-    const when = formatMeetingWhen(link.startAt);
+    const when = formatMeetingWhen(link.startAt, link.endAt);
     const callUrl = `${appUrl()}/m/${link.code}/call`;
     const guestNames = link.guests.map((guest) => guest.participant.name);
     const sent = await deliverPair([

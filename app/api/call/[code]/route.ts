@@ -52,7 +52,11 @@ export async function GET(request: Request, context: { params: Promise<{ code: s
 
   const room = await freshPeers(code);
   return Response.json({
-    peers: room.map((peer) => ({ peerId: peer.peerId, name: peer.name })),
+    peers: room.map((peer) => ({
+      peerId: peer.peerId,
+      name: peer.name,
+      role: peer.userId === member.hostId ? "host" : "participant",
+    })),
     signals: signals.map((signal) => ({
       id: signal.id,
       fromId: signal.fromId,

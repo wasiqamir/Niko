@@ -13,11 +13,11 @@ import {
 import { prisma } from "@/lib/prisma";
 import { getOpenHours, slotFitsOpenHours } from "@/lib/schedule";
 import { hashToken, randomToken } from "@/lib/tokens";
-import { dateKeyFromParts, formatMeetingWhen, WEEKDAYS, zonedParts } from "@/lib/time";
+import { dateKeyFromParts, formatMeetingWhen, parseClock, parseDateKey, todayKey, WEEKDAYS, zonedDate, zonedParts } from "@/lib/time";
 
 export type HoursState = { error?: string; saved?: boolean };
 export type DeclineState = { error?: string; message?: string };
-export type LinkState = { error?: string };
+export type LinkState = { error?: string; startTime?: string; endTime?: string };
 
 type HourRange = { weekday: number; startHour: number; endHour: number };
 
@@ -291,17 +291,32 @@ export async function createMeetingLink(_state: LinkState, formData: FormData): 
 
   const title = String(formData.get("title") ?? "").trim();
   const capacity = Number(formData.get("capacity"));
-  const start = new Date(String(formData.get("start") ?? ""));
-  if (title.length < 2 || title.length > 80) return { error: "Give the meeting a short name." };
+  const startTime = String(formData.get("startTime") ?? "").trim();
+  const endTime = String(formData.get("endTime") ?? "").trim();
+  const typed = { startTime, endTime };
+  if (title.length < 2 || title.length > 80) return { error: "Give the meeting a short name.", ...typed };
   if (!Number.isInteger(capacity) || capacity < 1 || capacity > 50) {
-    return { error: "Choose between 1 and 50 participants." };
+    return { error: "Choose between 1 and 50 participants.", ...typed };
   }
-  if (Number.isNaN(start.getTime())) return { error: "Choose a time." };
 
-  const parts = zonedParts(start);
-  if (parts.minute !== 0) return { error: "Choose a time on the hour." };
-  const end = new Date(start.getTime() + 60 * 60 * 1000);
-  if (end.getTime() <= Date.now()) return { error: "That time has already passed." };
+  const date = parseDateKey(String(formData.get("date") ?? ""));
+  const startClock = parseClock(startTime);
+  const endClock = parseClock(endTime);
+  if (!date || date < todayKey()) return { error: "Choose a day that has not passed.", ...typed };
+  if (!startClock || !endClock) {
+    return { error: "Write the times like 10:10 PM and 11:10 PM.", ...typed };
+  }
+
+  const [year, month, day] = date.split("-").map(Number);
+  const start = zonedDate(year, month, day, startClock.hour, startClock.minute);
+  const end = zonedDate(year, month, day, endClock.hour, endClock.minute);
+  if (end.getTime() <= start.getTime()) {
+    return { error: "The end time has to be later than the start, on the same day.", ...typed };
+  }
+  if (end.getTime() - start.getTime() > 8 * 60 * 60 * 1000) {
+    return { error: "A meeting link can cover up to 8 hours.", ...typed };
+  }
+  if (end.getTime() <= Date.now()) return { error: "That time has already passed.", ...typed };
 
   const code = randomToken();
   try {
@@ -328,8 +343,8 @@ export async function createMeetingLink(_state: LinkState, formData: FormData): 
     });
   } catch (error) {
     unstable_rethrow(error);
-    if (error instanceof BookingError) return { error: "That time is already booked." };
-    return { error: "The link could not be created. Try again." };
+    if (error instanceof BookingError) return { error: "That time is already booked.", ...typed };
+    return { error: "The link could not be created. Try again.", ...typed };
   }
 
   revalidatePath("/home");
@@ -363,7 +378,7 @@ export async function cancelMeetingLink(formData: FormData) {
           email: guest.participant.email,
         },
         title: link.title,
-        when: formatMeetingWhen(link.startAt),
+        when: formatMeetingWhen(link.startAt, link.endAt),
       });
     } catch (error) {
       unstable_rethrow(error);
@@ -432,7 +447,7 @@ export async function joinMeetingLink(formData: FormData) {
         host: { id: link.host.id, name: link.host.name, email: link.host.email },
         participant: { id: user.id, name: user.name, email: user.email },
         title: link.title,
-        when: formatMeetingWhen(link.startAt),
+        when: formatMeetingWhen(link.startAt, link.endAt),
         spots: `${joined} of ${link.capacity}`,
       });
     } catch (error) {
