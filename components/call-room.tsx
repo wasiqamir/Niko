@@ -7,14 +7,21 @@ import { formatMinuteClock, TIME_ZONE_LABEL } from "@/lib/time";
 type Role = "host" | "participant";
 type Peer = { peerId: string; name: string; role?: Role };
 type Signal = { id: number; fromId: string; kind: string; payload: string };
-type Remote = { peerId: string; name: string; role: Role; stream: MediaStream; revision: number };
+type Remote = {
+  peerId: string;
+  name: string;
+  role: Role;
+  stream: MediaStream;
+  audio: MediaStream;
+  revision: number;
+};
 type Seat = {
   key: string;
   name: string;
   stream: MediaStream | null;
+  audio: MediaStream | null;
   revision: number;
   hear: boolean;
-  mirror: boolean;
   cameraOn: boolean;
   waiting: boolean;
 };
@@ -42,6 +49,7 @@ export function CallRoom({
   const selfId = useRef("");
   if (!selfId.current) selfId.current = crypto.randomUUID();
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+  const [localPreview, setLocalPreview] = useState<MediaStream | null>(null);
   const [remotes, setRemotes] = useState<Remote[]>([]);
   const [micOn, setMicOn] = useState(true);
   const [cameraOn, setCameraOn] = useState(true);
@@ -57,7 +65,8 @@ export function CallRoom({
     const pcs = new Map<string, RTCPeerConnection>();
     const names = new Map<string, string>();
     const roles = new Map<string, Role>();
-    const streams = new Map<string, MediaStream>();
+    const videos = new Map<string, MediaStream>();
+    const audios = new Map<string, MediaStream>();
     const iceQueue = new Map<string, RTCIceCandidateInit[]>();
     const restarted = new Set<string>();
     let stream: MediaStream | null = null;
@@ -88,15 +97,17 @@ export function CallRoom({
     }
 
     function publish(remoteId: string) {
-      const remoteStream = streams.get(remoteId);
-      if (!remoteStream) return;
+      const video = videos.get(remoteId);
+      const audio = audios.get(remoteId);
+      if (!video && !audio) return;
       setRemotes((current) => {
         const previous = current.find((item) => item.peerId === remoteId);
         const next: Remote = {
           peerId: remoteId,
           name: names.get(remoteId) ?? previous?.name ?? "Guest",
           role: roles.get(remoteId) ?? previous?.role ?? "participant",
-          stream: remoteStream,
+          stream: video ?? previous?.stream ?? new MediaStream(),
+          audio: audio ?? previous?.audio ?? new MediaStream(),
           revision: (previous?.revision ?? 0) + 1,
         };
         return [...current.filter((item) => item.peerId !== remoteId), next];
@@ -118,8 +129,7 @@ export function CallRoom({
             encoding.maxFramerate = 30;
             encoding.scaleResolutionDownBy = 1;
           } else {
-            track.contentHint = "speech";
-            encoding.maxBitrate = 128_000;
+            encoding.maxBitrate = 96_000;
           }
           try {
             await sender.setParameters(params);
@@ -139,7 +149,7 @@ export function CallRoom({
         rtcpMuxPolicy: "require",
       });
       pcs.set(remoteId, pc);
-      stream?.getTracks().forEach((track) => pc.addTrack(track, stream as MediaStream));
+      stream?.getTracks().forEach((track) => pc.addTrack(track));
       pc.onicecandidate = (event) => {
         if (!event.candidate) return;
         void post({
@@ -149,14 +159,16 @@ export function CallRoom({
         });
       };
       pc.ontrack = (event) => {
-        const remoteStream = streams.get(remoteId) ?? new MediaStream();
-        streams.set(remoteId, remoteStream);
         const incoming = event.track;
+        const mine = stream?.getTracks().some((track) => track.id === incoming.id);
+        if (mine) return;
+        const bucket = incoming.kind === "audio" ? audios : videos;
+        const remoteStream = bucket.get(remoteId) ?? new MediaStream();
+        bucket.set(remoteId, remoteStream);
         if (!remoteStream.getTracks().some((track) => track.id === incoming.id)) {
           remoteStream.addTrack(incoming);
         }
         incoming.onunmute = () => publish(remoteId);
-        incoming.onmute = () => publish(remoteId);
         publish(remoteId);
       };
       pc.onconnectionstatechange = () => {
@@ -268,7 +280,8 @@ export function CallRoom({
         if (!live.has(remoteId)) {
           pc.close();
           pcs.delete(remoteId);
-          streams.delete(remoteId);
+          videos.delete(remoteId);
+          audios.delete(remoteId);
           setRemotes((current) => current.filter((item) => item.peerId !== remoteId));
         }
       }
@@ -315,7 +328,12 @@ export function CallRoom({
     async function start() {
       try {
         stream = await navigator.mediaDevices.getUserMedia({
-          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+            channelCount: 1,
+          },
           video: {
             facingMode: "user",
             width: { ideal: 1280 },
@@ -336,9 +354,20 @@ export function CallRoom({
         stream.getTracks().forEach((track) => track.stop());
         return;
       }
-      for (const track of stream.getTracks()) {
-        track.contentHint = track.kind === "video" ? "motion" : "speech";
-      }
+      await Promise.all(
+        stream.getAudioTracks().map((track) =>
+          track
+            .applyConstraints({
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+              channelCount: 1,
+            })
+            .catch(() => undefined),
+        ),
+      );
+      for (const track of stream.getVideoTracks()) track.contentHint = "motion";
+      setLocalPreview(new MediaStream(stream.getVideoTracks()));
       setLocalStream(stream);
       setStatus("");
       void loop();
@@ -388,7 +417,10 @@ export function CallRoom({
       .then(() => setNeedSound(false))
       .catch(() => setNeedSound(true));
     document.querySelectorAll("video").forEach((node) => {
-      void (node as HTMLVideoElement).play().catch(() => undefined);
+      const video = node as HTMLVideoElement;
+      video.muted = true;
+      video.volume = 0;
+      void video.play().catch(() => undefined);
     });
   }
 
@@ -401,10 +433,10 @@ export function CallRoom({
   const selfSeat = {
     key: "self",
     name,
-    stream: localStream,
+    stream: localPreview,
+    audio: null,
     revision: 0,
     hear: false,
-    mirror: true,
     cameraOn,
     waiting: false,
   };
@@ -416,9 +448,9 @@ export function CallRoom({
             key: hostRemote.peerId,
             name: hostRemote.name,
             stream: hostRemote.stream,
+            audio: hostRemote.audio,
             revision: hostRemote.revision,
             hear: true,
-            mirror: false,
             cameraOn: true,
             waiting: false,
           }
@@ -508,9 +540,9 @@ function remoteSeat(item: Remote): Seat {
     key: item.peerId,
     name: item.name,
     stream: item.stream,
+    audio: item.audio,
     revision: item.revision,
     hear: true,
-    mirror: false,
     cameraOn: true,
     waiting: false,
   };
@@ -521,9 +553,9 @@ function emptySeat(key: string): Seat {
     key,
     name: "Waiting",
     stream: null,
+    audio: null,
     revision: 0,
     hear: false,
-    mirror: false,
     cameraOn: false,
     waiting: true,
   };
@@ -550,15 +582,16 @@ function Pane({
   useEffect(() => {
     const video = videoRef.current;
     const audio = audioRef.current;
-    const stream = seat.stream;
     if (video) {
       video.muted = true;
-      video.srcObject = stream;
+      video.defaultMuted = true;
+      video.volume = 0;
+      video.srcObject = seat.stream;
       void video.play().catch(() => undefined);
     }
     const playSound = () => {
-      if (!audio || !seat.hear || !stream) return;
-      audio.srcObject = stream;
+      if (!audio || !seat.hear || !seat.audio || seat.audio.getAudioTracks().length === 0) return;
+      audio.srcObject = seat.audio;
       audio.muted = false;
       audio.volume = 1;
       void audio
@@ -569,10 +602,14 @@ function Pane({
     playSound();
 
     const wake = () => {
-      void video?.play().catch(() => undefined);
+      if (video) {
+        video.muted = true;
+        video.volume = 0;
+        void video.play().catch(() => undefined);
+      }
       playSound();
     };
-    const tracks = stream?.getTracks() ?? [];
+    const tracks = [...(seat.stream?.getTracks() ?? []), ...(seat.audio?.getTracks() ?? [])];
     for (const track of tracks) {
       track.addEventListener("unmute", wake);
       track.addEventListener("mute", wake);
@@ -587,7 +624,7 @@ function Pane({
         track.removeEventListener("mute", wake);
       }
     };
-  }, [seat.stream, seat.revision, seat.hear]);
+  }, [seat.stream, seat.audio, seat.revision, seat.hear]);
 
   const liveVideo = Boolean(
     seat.cameraOn &&
@@ -603,7 +640,7 @@ function Pane({
           autoPlay
           playsInline
           muted
-          className={`absolute inset-0 h-full w-full object-cover ${seat.mirror ? "-scale-x-100" : ""}`}
+          className="absolute inset-0 h-full w-full object-contain"
         />
         {seat.hear ? <audio ref={audioRef} autoPlay className="absolute h-px w-px" /> : null}
         {liveVideo ? null : (
