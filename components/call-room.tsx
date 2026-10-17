@@ -34,6 +34,7 @@ export function CallRoom({
   name,
   role,
   startsAt,
+  endsAt,
   open = false,
   leaveHref = `/m/${code}`,
 }: {
@@ -42,10 +43,12 @@ export function CallRoom({
   name: string;
   role: Role;
   startsAt: string;
+  endsAt: string;
   open?: boolean;
   leaveHref?: string;
 }) {
   const [started, setStarted] = useState(open);
+  const [ended, setEnded] = useState(false);
   const selfId = useRef("");
   if (!selfId.current) selfId.current = crypto.randomUUID();
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
@@ -60,7 +63,17 @@ export function CallRoom({
   const soundReady = useRef(() => setNeedSound(false));
 
   useEffect(() => {
-    if (!started) return;
+    const end = new Date(endsAt).getTime();
+    const tick = () => {
+      if (Date.now() >= end) setEnded(true);
+    };
+    tick();
+    const timer = window.setInterval(tick, 1000);
+    return () => window.clearInterval(timer);
+  }, [endsAt]);
+
+  useEffect(() => {
+    if (!started || ended) return;
     const peerId = selfId.current;
     const pcs = new Map<string, RTCPeerConnection>();
     const names = new Map<string, string>();
@@ -302,6 +315,10 @@ export function CallRoom({
         setStatus("The live room is full. Eight people can be on the call at once.");
         return;
       }
+      if (response.status === 403) {
+        setEnded(true);
+        return;
+      }
       if (!response.ok) {
         setStatus("This call is closed.");
         return;
@@ -382,7 +399,7 @@ export function CallRoom({
       window.removeEventListener("pagehide", leave);
       leave();
     };
-  }, [code, started]);
+  }, [code, started, ended]);
 
   function toggleMic() {
     const next = !micOn;
@@ -422,6 +439,22 @@ export function CallRoom({
       video.volume = 0;
       void video.play().catch(() => undefined);
     });
+  }
+
+  if (ended) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-[#10241c] px-6 text-center text-background">
+        <p className="text-xs uppercase tracking-[0.18em] text-gold">Live room</p>
+        <h1 className="mt-3 font-serif text-4xl tracking-tight">Meeting is ended</h1>
+        <p className="mt-3 text-sm text-background/70">The meeting time is over, so the room is closed.</p>
+        <Link
+          href={leaveHref}
+          className="mt-8 inline-flex h-12 items-center rounded-full bg-clay px-5 text-sm font-medium text-background"
+        >
+          Leave
+        </Link>
+      </div>
+    );
   }
 
   if (!started) {

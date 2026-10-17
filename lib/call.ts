@@ -25,6 +25,9 @@ export async function loadCallRoom(code: string) {
   if (link.status !== "SCHEDULED") {
     return { ok: false as const, message: "This meeting was cancelled." };
   }
+  if (link.endAt.getTime() <= Date.now()) {
+    return { ok: false as const, message: "This meeting has ended." };
+  }
   if (user.id === link.hostId) {
     return {
       ok: true as const,
@@ -32,6 +35,7 @@ export async function loadCallRoom(code: string) {
       name: user.name,
       role: "host" as const,
       startsAt: link.startAt.toISOString(),
+      endsAt: link.endAt.toISOString(),
     };
   }
   if (user.accountType !== "PARTICIPANT") {
@@ -53,6 +57,7 @@ export async function loadCallRoom(code: string) {
     name: user.name,
     role: "participant" as const,
     startsAt: link.startAt.toISOString(),
+    endsAt: link.endAt.toISOString(),
   };
 }
 
@@ -144,6 +149,7 @@ export async function callMember(code: string) {
   });
   if (link) {
     if (link.status !== "SCHEDULED") return null;
+    if (link.endAt.getTime() <= Date.now()) return null;
     const allowed =
       link.hostId === user.id || link.guests.some((guest) => guest.participantId === user.id);
     if (!allowed) return null;
@@ -152,6 +158,7 @@ export async function callMember(code: string) {
 
   const meeting = await prisma.meeting.findUnique({ where: { id: code } });
   if (!meeting || meeting.status !== "SCHEDULED") return null;
+  if (meeting.endAt.getTime() <= Date.now()) return null;
   if (meeting.hostId !== user.id && meeting.participantId !== user.id) return null;
   return { user, hostId: meeting.hostId };
 }

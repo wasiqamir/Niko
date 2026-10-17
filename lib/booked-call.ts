@@ -22,6 +22,9 @@ export async function loadBookedCall(meetingId: string) {
   if (meeting.status !== "SCHEDULED") {
     return { ok: false as const, message: "This meeting is closed." };
   }
+  if (meeting.endAt.getTime() <= Date.now()) {
+    return { ok: false as const, message: "This meeting has ended." };
+  }
   const onIt = user.id === meeting.hostId || user.id === meeting.participantId;
   if (!onIt) {
     return { ok: false as const, message: "This call is for the people on this meeting." };
@@ -34,5 +37,6 @@ export async function loadBookedCall(meetingId: string) {
     name: user.name,
     role: user.id === meeting.hostId ? ("host" as const) : ("participant" as const),
     startsAt: meeting.startAt.toISOString(),
+    endsAt: meeting.endAt.toISOString(),
   };
 }

@@ -23,7 +23,9 @@ async function Room({ params }: { params: Promise<{ code: string }> }) {
   if (!room.ok) {
     return (
       <div className="mx-auto flex min-h-screen w-full max-w-xl flex-col justify-center px-5 text-foreground">
-        <h1 className="font-serif text-4xl tracking-tight">The call is closed</h1>
+        <h1 className="font-serif text-4xl tracking-tight">
+          {room.message === "This meeting has ended." ? "Meeting is ended" : "The call is closed"}
+        </h1>
         <p className="mt-3 text-muted">{room.message}</p>
         <Link href={`/m/${code}`} className="mt-6 text-sm font-medium underline underline-offset-4">
           Back to the meeting
@@ -39,6 +41,7 @@ async function Room({ params }: { params: Promise<{ code: string }> }) {
       name={room.name}
       role={room.role}
       startsAt={room.startsAt}
+      endsAt={room.endsAt}
       open={Date.parse(room.startsAt) <= Date.now()}
     />
   );

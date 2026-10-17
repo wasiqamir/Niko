@@ -3,6 +3,7 @@ import Link from "next/link";
 import { connection } from "next/server";
 import { cancelMeetingLink } from "@/app/actions/meetings";
 import { CopyLink } from "@/components/copy-link";
+import { JoinMeeting } from "@/components/join-meeting";
 import { Logo } from "@/components/logo";
 import { Notice } from "@/components/notice";
 import { SubmitButton } from "@/components/submit-button";
@@ -105,31 +106,17 @@ async function JoinCard({
         ) : null}
         {error && ERRORS[error] ? <Notice tone="error">{ERRORS[error]}</Notice> : null}
 
-        {link.status === "SCHEDULED" && isHost ? (
-          <Link
-            href={`/m/${link.code}/call`}
-            className="inline-flex h-12 items-center justify-center rounded-xl bg-foreground px-5 text-sm font-medium text-background"
-          >
-            Join meeting
-          </Link>
-        ) : null}
-
-        {link.status === "SCHEDULED" && !isHost && user?.accountType === "PARTICIPANT" ? (
-          <Link
-            href={`/m/${link.code}/call`}
-            className="inline-flex h-12 items-center justify-center rounded-xl bg-foreground px-5 text-sm font-medium text-background"
-          >
-            Join meeting
-          </Link>
-        ) : null}
-
-        {link.status === "SCHEDULED" && !user ? (
-          <Link
-            href={`/login?next=${encodeURIComponent(`/m/${link.code}/call`)}`}
-            className="inline-flex h-12 items-center justify-center rounded-xl bg-foreground px-5 text-sm font-medium text-background"
-          >
-            Log in to join the meeting
-          </Link>
+        {link.status === "SCHEDULED" && (isHost || !user || user.accountType === "PARTICIPANT") ? (
+          <JoinMeeting
+            large
+            endsAt={link.endAt.toISOString()}
+            label={user ? "Join meeting" : "Log in to join the meeting"}
+            href={
+              user
+                ? `/m/${link.code}/call`
+                : `/login?next=${encodeURIComponent(`/m/${link.code}/call`)}`
+            }
+          />
         ) : null}
 
         {isHost && link.status === "SCHEDULED" ? (

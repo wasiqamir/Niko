@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { cancelMeetingLink, declineAsHost } from "@/app/actions/meetings";
 import { CopyLink } from "@/components/copy-link";
+import { JoinMeeting } from "@/components/join-meeting";
 import { SubmitButton } from "@/components/submit-button";
 import { formatMeetingWhen } from "@/lib/time";
 
@@ -51,13 +51,8 @@ export function MeetingList({ meetings, empty }: { meetings: MeetingCard[]; empt
               ))}
             </ul>
           ) : null}
-          {meeting.callUrl ? (
-            <Link
-              href={meeting.callUrl}
-              className="mt-3 inline-flex h-10 items-center rounded-xl bg-foreground px-4 text-sm font-medium text-background"
-            >
-              Join meeting
-            </Link>
+          {meeting.callUrl && meeting.endAt ? (
+            <JoinMeeting href={meeting.callUrl} endsAt={meeting.endAt.toISOString()} />
           ) : null}
           {meeting.url ? <CopyLink url={meeting.url} /> : null}
           {meeting.action === "decline" ? (
