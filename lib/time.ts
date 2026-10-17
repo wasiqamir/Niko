@@ -90,6 +90,15 @@ export function weekdayOfKey(key: string) {
   return new Date(Date.UTC(year, month - 1, day)).getUTCDay();
 }
 
+export function shiftMonth(year: number, month: number, delta: number) {
+  const next = new Date(Date.UTC(year, month - 1 + delta, 1));
+  return { year: next.getUTCFullYear(), month: next.getUTCMonth() + 1 };
+}
+
+export function daysInMonth(year: number, month: number) {
+  return new Date(Date.UTC(year, month, 0)).getUTCDate();
+}
+
 export function zonedDate(year: number, month: number, day: number, hour = 0, minute = 0) {
   return new Date(Date.UTC(year, month - 1, day, hour - 5, minute, 0));
 }

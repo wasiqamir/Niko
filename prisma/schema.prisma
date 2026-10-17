@@ -60,6 +60,7 @@ model MeetingLink {
   host      User              @relation(fields: [hostId], references: [id], onDelete: Cascade)
   code      String            @unique
   title     String
+  participantName String?
   startAt   DateTime
   endAt     DateTime
   capacity  Int

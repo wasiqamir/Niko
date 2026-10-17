@@ -85,6 +85,9 @@ async function JoinCard({
       <div className="bg-forest px-6 py-8 text-background sm:px-8">
         <p className="text-xs uppercase tracking-[0.22em] text-gold">Niko meeting</p>
         <h1 className="mt-3 font-serif text-4xl tracking-tight">{link.title}</h1>
+        {link.participantName ? (
+          <p className="mt-2 text-background/80">For {link.participantName}</p>
+        ) : null}
         <p className="mt-3 text-background/80">{formatMeetingWhen(link.startAt, link.endAt)}</p>
       </div>
       <div className="flex flex-col gap-4 px-6 py-6 sm:px-8">

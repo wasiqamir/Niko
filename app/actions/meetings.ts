@@ -17,7 +17,13 @@ import { dateKeyFromParts, formatMeetingWhen, parseClock, parseDateKey, todayKey
 
 export type HoursState = { error?: string; saved?: boolean };
 export type DeclineState = { error?: string; message?: string };
-export type LinkState = { error?: string; startTime?: string; endTime?: string };
+export type LinkState = {
+  error?: string;
+  startTime?: string;
+  endTime?: string;
+  participantName?: string;
+  title?: string;
+};
 
 type HourRange = { weekday: number; startHour: number; endHour: number };
 
@@ -290,10 +296,14 @@ export async function createMeetingLink(_state: LinkState, formData: FormData): 
   if (user.accountType !== "HOST") return { error: "Only a host can create a meeting link." };
 
   const title = String(formData.get("title") ?? "").trim();
+  const participantName = String(formData.get("participantName") ?? "").trim();
   const capacity = Number(formData.get("capacity"));
   const startTime = String(formData.get("startTime") ?? "").trim();
   const endTime = String(formData.get("endTime") ?? "").trim();
-  const typed = { startTime, endTime };
+  const typed = { startTime, endTime, participantName, title };
+  if (participantName.length < 2 || participantName.length > 80) {
+    return { error: "Write the participant's name.", ...typed };
+  }
   if (title.length < 2 || title.length > 80) return { error: "Give the meeting a short name.", ...typed };
   if (!Number.isInteger(capacity) || capacity < 1 || capacity > 50) {
     return { error: "Choose between 1 and 50 participants.", ...typed };
@@ -334,6 +344,7 @@ export async function createMeetingLink(_state: LinkState, formData: FormData): 
           hostId: user.id,
           code,
           title,
+          participantName,
           startAt: start,
           endAt: end,
           capacity,

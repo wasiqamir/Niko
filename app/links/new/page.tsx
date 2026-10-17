@@ -2,35 +2,36 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { connection } from "next/server";
 import { AccountHeader } from "@/components/account-header";
-import { CreateLinkForm } from "@/components/create-link-form";
+import { MeetingCalendar, type CalendarEvent } from "@/components/meeting-calendar";
 import { getCurrentUser } from "@/lib/auth";
-import { busyBlocks } from "@/lib/schedule";
-import { addDays, formatDayLabel, formatSpan, parseDateKey, slotStart, todayKey } from "@/lib/time";
+import { prisma } from "@/lib/prisma";
+import {
+  dateKeyFromParts,
+  formatSpan,
+  shiftMonth,
+  slotStart,
+  todayKey,
+  zonedParts,
+} from "@/lib/time";
 
 export const metadata = {
   title: "Create a meeting link",
 };
 
-export default function NewLinkPage(props: {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-}) {
+export default function NewLinkPage() {
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col px-5">
+    <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col px-5">
       <AccountHeader />
       <main className="flex-1 py-6">
         <Suspense fallback={<div className="h-80 rounded-3xl bg-line/60" />}>
-          <Planner searchParams={props.searchParams} />
+          <Planner />
         </Suspense>
       </main>
     </div>
   );
 }
 
-async function Planner({
-  searchParams,
-}: {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-}) {
+async function Planner() {
   await connection();
   const user = await getCurrentUser();
   if (user.accountType !== "HOST") {
@@ -44,35 +45,55 @@ async function Planner({
     );
   }
 
-  const params = await searchParams;
-  const requested = parseDateKey(Array.isArray(params.date) ? params.date[0] : params.date);
-  const now = new Date();
-  const today = todayKey(now);
-  const date = requested && requested >= today ? requested : today;
-  const days = Array.from({ length: 14 }, (_, index) => addDays(today, index));
-  const held = await busyBlocks(user.id, slotStart(date, 0), slotStart(date, 24));
+  const today = todayKey();
+  const year = Number(today.slice(0, 4));
+  const month = Number(today.slice(5, 7));
+  const start = slotStart(dateKeyFromParts(year, month, 1), 0);
+  const last = shiftMonth(year, month, 12);
+  const end = slotStart(dateKeyFromParts(last.year, last.month, 1), 0);
+  const [meetings, links] = await Promise.all([
+    prisma.meeting.findMany({
+      where: { hostId: user.id, status: "SCHEDULED", startAt: { gte: start, lt: end } },
+      include: { participant: { select: { name: true } } },
+      orderBy: { startAt: "asc" },
+    }),
+    prisma.meetingLink.findMany({
+      where: { hostId: user.id, status: "SCHEDULED", startAt: { gte: start, lt: end } },
+      orderBy: { startAt: "asc" },
+    }),
+  ]);
+
+  const events: CalendarEvent[] = [
+    ...meetings.map((meeting) => ({
+      id: meeting.id,
+      date: dateKey(meeting.startAt),
+      time: formatSpan(meeting.startAt, meeting.endAt),
+      title: meeting.participant.name,
+    })),
+    ...links.map((link) => ({
+      id: link.id,
+      date: dateKey(link.startAt),
+      time: formatSpan(link.startAt, link.endAt),
+      title: link.participantName ? `${link.participantName} · ${link.title}` : link.title,
+    })),
+  ];
 
   return (
     <div>
       <p className="text-xs uppercase tracking-[0.22em] text-accent">New meeting</p>
-      <h1 className="mt-3 font-serif text-4xl tracking-tight sm:text-5xl">Hold a time, then share the link.</h1>
+      <h1 className="mt-3 font-serif text-4xl tracking-tight sm:text-5xl">Choose a date.</h1>
       <p className="mt-3 max-w-xl text-base leading-7 text-muted">
-        Pick the day, write the start and end, and choose how many people can join. Niko keeps that
-        time for this meeting. A participant who searches your email will see it as booked.
+        The calendar shows the meetings already held. Click a date, then fill in the time, the
+        participant, and the meeting.
       </p>
-      <section className="mt-8 rounded-[2rem] border border-line bg-surface p-6 sm:p-8">
-        <CreateLinkForm
-          date={date}
-          dateLabel={formatDayLabel(date)}
-          held={held.map((block) => formatSpan(block.startAt, block.endAt))}
-          days={days.map((day) => ({
-            key: day,
-            label: formatDayLabel(day),
-            href: `/links/new?date=${day}`,
-            selected: day === date,
-          }))}
-        />
-      </section>
+      <div className="mt-8">
+        <MeetingCalendar today={today} events={events} />
+      </div>
     </div>
   );
+}
+
+function dateKey(date: Date) {
+  const parts = zonedParts(date);
+  return dateKeyFromParts(parts.year, parts.month, parts.day);
 }

@@ -86,7 +86,12 @@ async function AccountHome({
           ? `Your link · ${link.guests.length} of ${link.capacity}`
           : "Cancelled link",
       title: link.title,
-      detail: link.status === "SCHEDULED" ? "Held by you. Other people cannot book this hour." : undefined,
+      detail:
+        link.status === "SCHEDULED"
+          ? [link.participantName, "Held by you. Other people cannot book this time."]
+              .filter(Boolean)
+              .join(" · ")
+          : undefined,
       note: link.status === "CANCELLED" ? "Cancelled. This hour is open again." : undefined,
       url: link.status === "SCHEDULED" ? `${appUrl()}/m/${link.code}` : undefined,
       callUrl: link.status === "SCHEDULED" ? `/m/${link.code}/call` : undefined,
