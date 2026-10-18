@@ -3,12 +3,14 @@ import Link from "next/link";
 import { ACCOUNT_OPTIONS } from "@/lib/accounts";
 import { getOptionalUser } from "@/lib/auth";
 import { Logo } from "@/components/logo";
+import { ModeSwitch } from "@/components/mode-switch";
 
 export default function HomePage() {
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col px-5">
-      <header className="flex items-center justify-between gap-4 py-5">
+      <header className="flex flex-wrap items-center justify-between gap-3 py-5">
         <Logo />
+        <ModeSwitch mode="individual" />
         <Suspense fallback={<div className="h-10 w-40 rounded-xl bg-line/70" />}>
           <HeaderActions />
         </Suspense>

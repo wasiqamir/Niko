@@ -12,6 +12,7 @@ import {
 } from "@/lib/email";
 import { prisma } from "@/lib/prisma";
 import { getOpenHours, slotFitsOpenHours } from "@/lib/schedule";
+import { teamOverlap } from "@/lib/teams";
 import { hashToken, randomToken } from "@/lib/tokens";
 import { dateKeyFromParts, formatMeetingWhen, parseClock, parseDateKey, todayKey, WEEKDAYS, zonedDate, zonedParts } from "@/lib/time";
 
@@ -136,7 +137,8 @@ export async function bookMeeting(formData: FormData) {
     const hostLink = await prisma.meetingLink.findFirst({
       where: { hostId: host.id, status: "SCHEDULED", startAt: { lt: end }, endAt: { gt: start } },
     });
-    if (hostMeeting || hostLink) throw new BookingError("taken");
+    const hostTeam = await teamOverlap(prisma, host.id, start, end);
+    if (hostMeeting || hostLink || hostTeam) throw new BookingError("taken");
 
     const windows = await getOpenHours(host.id);
     if (!slotFitsOpenHours(windows, start)) throw new BookingError("closed");
@@ -155,7 +157,8 @@ export async function bookMeeting(formData: FormData) {
         meetingLink: { status: "SCHEDULED", startAt: { lt: end }, endAt: { gt: start } },
       },
     });
-    if (participantClash || guestClash) throw new BookingError("overlap");
+    const participantTeam = await teamOverlap(prisma, user.id, start, end);
+    if (participantClash || guestClash || participantTeam) throw new BookingError("overlap");
 
     const token = randomToken();
     const meeting = await prisma.$transaction(async (tx) => {
@@ -175,7 +178,10 @@ export async function bookMeeting(formData: FormData) {
           endAt: { gt: start },
         },
       });
-      if (clash || linkClash) throw new BookingError("taken");
+      const teamClash = await teamOverlap(tx, host.id, start, end);
+      const bookerTeam = await teamOverlap(tx, user.id, start, end);
+      if (clash || linkClash || teamClash) throw new BookingError("taken");
+      if (bookerTeam) throw new BookingError("overlap");
 
       return tx.meeting.create({
         data: {
@@ -337,7 +343,8 @@ export async function createMeetingLink(_state: LinkState, formData: FormData): 
       const linkClash = await tx.meetingLink.findFirst({
         where: { hostId: user.id, status: "SCHEDULED", startAt: { lt: end }, endAt: { gt: start } },
       });
-      if (clash || linkClash) throw new BookingError("taken");
+      const teamClash = await teamOverlap(tx, user.id, start, end);
+      if (clash || linkClash || teamClash) throw new BookingError("taken");
 
       await tx.meetingLink.create({
         data: {
@@ -438,7 +445,8 @@ export async function joinMeetingLink(formData: FormData) {
         },
       },
     });
-    if (meetingClash || guestClash) throw new BookingError("overlap");
+    const teamClash = await teamOverlap(prisma, user.id, link.startAt, link.endAt);
+    if (meetingClash || guestClash || teamClash) throw new BookingError("overlap");
 
     const joined = await prisma.$transaction(async (tx) => {
       const current = await tx.meetingLink.findUnique({

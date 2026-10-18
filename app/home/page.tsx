@@ -3,6 +3,7 @@ import { AccountHeader } from "@/components/account-header";
 import { HostDashboard } from "@/components/host-dashboard";
 import { HostSearchForm } from "@/components/host-search-form";
 import { MeetingList, type MeetingCard } from "@/components/meeting-list";
+import { TeamDesk, type TeamDeskMember } from "@/components/team-desk";
 import { accountOption } from "@/lib/accounts";
 import { getCurrentUser } from "@/lib/auth";
 import { appUrl } from "@/lib/email";
@@ -103,8 +104,11 @@ async function AccountHome({
     }));
     const rows = [...bookingRows, ...linkRows].sort((a, b) => b.startAt.getTime() - a.startAt.getTime());
     const upcoming = rows.filter((row) => row.tone === "scheduled" && row.startAt.getTime() > now.getTime()).length;
+    const team = await loadTeamDesk(user.id, notice);
 
     return (
+      <div className="flex flex-col gap-8">
+        {team}
       <HostDashboard
         firstName={firstName}
         email={user.email}
@@ -116,6 +120,7 @@ async function AccountHome({
         freshUrl={fresh ? `${appUrl()}/m/${fresh.code}` : undefined}
         notice={notice}
       />
+      </div>
     );
   }
 
@@ -163,8 +168,11 @@ async function AccountHome({
     })),
   ].sort((a, b) => b.startAt.getTime() - a.startAt.getTime());
 
+  const team = await loadTeamDesk(user.id, notice);
+
   return (
     <div>
+      {team}
       <p className="inline-flex items-center gap-2 text-sm text-muted">
         <span className="h-2 w-2 rounded-full bg-clay" />
         {account?.audience ?? "Account"} · Free · Email confirmed
@@ -187,5 +195,57 @@ async function AccountHome({
         </div>
       </section>
     </div>
+  );
+}
+
+async function loadTeamDesk(userId: string, notice?: string) {
+  const include = {
+    owner: true,
+    members: { include: { user: true }, orderBy: { createdAt: "asc" as const } },
+    meetings: { where: { status: "SCHEDULED" as const }, orderBy: { startAt: "desc" as const }, take: 8 },
+  };
+  const [owned, membership] = await Promise.all([
+    prisma.team.findUnique({ where: { ownerId: userId }, include }),
+    prisma.teamMember.findFirst({
+      where: { userId, status: "ACTIVE" },
+      include: { team: { include } },
+    }),
+  ]);
+  const team = owned?.status === "ACTIVE" ? owned : membership?.team.status === "ACTIVE" ? membership.team : null;
+  if (!team) return null;
+
+  const isOwner = team.ownerId === userId;
+  const members: TeamDeskMember[] = [
+    {
+      id: team.owner.id,
+      name: team.owner.name,
+      email: team.owner.email,
+      role: "Creator",
+      state: team.owner.hoursReady ? "Schedule set" : "Set your schedule",
+      canResend: false,
+    },
+    ...team.members.map((member) => ({
+      id: member.id,
+      name: member.name,
+      email: member.email,
+      role: "Member" as const,
+      state:
+        member.status !== "ACTIVE"
+          ? "Invited"
+          : member.user?.hoursReady
+            ? "Schedule set"
+            : "Joined · set schedule",
+      canResend: isOwner && member.status === "PENDING",
+    })),
+  ];
+
+  return (
+    <TeamDesk
+      name={team.name}
+      owner={isOwner}
+      members={members}
+      meetings={team.meetings}
+      notice={notice}
+    />
   );
 }

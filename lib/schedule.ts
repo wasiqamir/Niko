@@ -47,7 +47,7 @@ export async function getOpenHours(hostId: string): Promise<OpenWindow[]> {
 }
 
 export async function busyBlocks(hostId: string, dayStart: Date, dayEnd: Date) {
-  const [meetings, links] = await Promise.all([
+  const [meetings, links, teamMeetings] = await Promise.all([
     prisma.meeting.findMany({
       where: {
         hostId,
@@ -64,9 +64,19 @@ export async function busyBlocks(hostId: string, dayStart: Date, dayEnd: Date) {
         endAt: { gt: dayStart },
       },
     }),
+    prisma.teamMeeting.findMany({
+      where: {
+        status: "SCHEDULED",
+        startAt: { lt: dayEnd },
+        endAt: { gt: dayStart },
+        team: {
+          OR: [{ ownerId: hostId }, { members: { some: { userId: hostId, status: "ACTIVE" } } }],
+        },
+      },
+    }),
   ]);
 
-  return [...meetings, ...links];
+  return [...meetings, ...links, ...teamMeetings];
 }
 
 function hoursOnDate(start: Date, end: Date, dateKey: string) {

@@ -1,10 +1,11 @@
 import "server-only";
 
-import { appUrl, sendMeetingReminderEmail } from "@/lib/email";
+import { appUrl, sendMeetingReminderEmail, sendTeamReminderEmail } from "@/lib/email";
 import { prisma } from "@/lib/prisma";
 import { formatMeetingWhen } from "@/lib/time";
 
 const LEAD_MS = 2 * 60 * 1000;
+const TEAM_LEAD_MS = 10 * 60 * 1000;
 const LATE_MS = 60 * 1000;
 
 function nameList(names: string[]) {
@@ -110,6 +111,58 @@ export async function sendDueReminders(now = new Date()) {
     if (sent === 0) {
       await prisma.meetingLink.update({
         where: { id: link.id },
+        data: { reminderSentAt: null },
+      });
+    }
+  }
+
+  const teamLatest = new Date(now.getTime() + TEAM_LEAD_MS);
+  const teamMeetings = await prisma.teamMeeting.findMany({
+    where: {
+      status: "SCHEDULED",
+      reminderSentAt: null,
+      startAt: { gt: earliest, lte: teamLatest },
+    },
+    include: {
+      team: {
+        include: {
+          owner: true,
+          members: { where: { status: "ACTIVE" }, include: { user: true } },
+        },
+      },
+    },
+  });
+
+  for (const meeting of teamMeetings) {
+    const claimed = await prisma.teamMeeting.updateMany({
+      where: { id: meeting.id, reminderSentAt: null, status: "SCHEDULED" },
+      data: { reminderSentAt: new Date() },
+    });
+    if (claimed.count !== 1) continue;
+
+    const when = formatMeetingWhen(meeting.startAt, meeting.endAt);
+    const joinUrl = `${appUrl()}/teams/meetings/${meeting.id}`;
+    const people = [
+      meeting.team.owner,
+      ...meeting.team.members.flatMap((member) => (member.user ? [member.user] : [])),
+    ];
+    let sent = 0;
+    for (const person of people) {
+      try {
+        await sendTeamReminderEmail({
+          to: person,
+          teamName: meeting.team.name,
+          when,
+          joinUrl,
+        });
+        sent += 1;
+      } catch (error) {
+        console.error("Team reminder email failed", error);
+      }
+    }
+    if (sent === 0) {
+      await prisma.teamMeeting.update({
+        where: { id: meeting.id },
         data: { reminderSentAt: null },
       });
     }

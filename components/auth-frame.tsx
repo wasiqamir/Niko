@@ -1,22 +1,26 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { Logo } from "@/components/logo";
+import { ModeSwitch } from "@/components/mode-switch";
 
 export function AuthFrame({
   title,
   subtitle,
   alternate,
+  mode = "individual",
   children,
 }: {
   title: string;
   subtitle: string;
   alternate: { href: string; label: string };
+  mode?: "individual" | "teams";
   children: ReactNode;
 }) {
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-5">
-      <header className="flex items-center justify-between py-5">
+      <header className="flex flex-wrap items-center justify-between gap-3 py-5">
         <Logo />
+        <ModeSwitch mode={mode} />
         <Link href={alternate.href} className="text-sm font-medium">
           {alternate.label}
         </Link>

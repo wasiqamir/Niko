@@ -51,7 +51,7 @@ async function Planner() {
   const start = slotStart(dateKeyFromParts(year, month, 1), 0);
   const last = shiftMonth(year, month, 12);
   const end = slotStart(dateKeyFromParts(last.year, last.month, 1), 0);
-  const [meetings, links] = await Promise.all([
+  const [meetings, links, teamMeetings] = await Promise.all([
     prisma.meeting.findMany({
       where: { hostId: user.id, status: "SCHEDULED", startAt: { gte: start, lt: end } },
       include: { participant: { select: { name: true } } },
@@ -59,6 +59,17 @@ async function Planner() {
     }),
     prisma.meetingLink.findMany({
       where: { hostId: user.id, status: "SCHEDULED", startAt: { gte: start, lt: end } },
+      orderBy: { startAt: "asc" },
+    }),
+    prisma.teamMeeting.findMany({
+      where: {
+        status: "SCHEDULED",
+        startAt: { gte: start, lt: end },
+        team: {
+          OR: [{ ownerId: user.id }, { members: { some: { userId: user.id, status: "ACTIVE" } } }],
+        },
+      },
+      include: { team: { select: { name: true } } },
       orderBy: { startAt: "asc" },
     }),
   ]);
@@ -75,6 +86,12 @@ async function Planner() {
       date: dateKey(link.startAt),
       time: formatSpan(link.startAt, link.endAt),
       title: link.participantName ? `${link.participantName} · ${link.title}` : link.title,
+    })),
+    ...teamMeetings.map((meeting) => ({
+      id: meeting.id,
+      date: dateKey(meeting.startAt),
+      time: formatSpan(meeting.startAt, meeting.endAt),
+      title: meeting.team.name,
     })),
   ];
 

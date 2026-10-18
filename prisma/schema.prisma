@@ -22,6 +22,21 @@ enum MeetingLinkStatus {
   CANCELLED
 }
 
+enum TeamStatus {
+  PENDING
+  ACTIVE
+}
+
+enum TeamMemberStatus {
+  PENDING
+  ACTIVE
+}
+
+enum TeamMeetingStatus {
+  SCHEDULED
+  CANCELLED
+}
+
 model User {
   id                 String              @id @default(cuid())
   name               String
@@ -41,6 +56,8 @@ model User {
   participantMeetings  Meeting[]           @relation("ParticipantMeetings")
   meetingLinks         MeetingLink[]
   meetingLinkGuests    MeetingLinkGuest[]
+  ownedTeam            Team?               @relation("OwnedTeams")
+  teamMemberships      TeamMember[]
 }
 
 model Availability {
@@ -125,6 +142,50 @@ model Meeting {
 
   @@index([hostId, startAt])
   @@index([participantId, startAt])
+}
+
+model Team {
+  id        String     @id @default(cuid())
+  name      String
+  ownerId   String     @unique
+  owner     User       @relation("OwnedTeams", fields: [ownerId], references: [id], onDelete: Cascade)
+  status    TeamStatus @default(PENDING)
+  createdAt DateTime   @default(now())
+  members   TeamMember[]
+  meetings  TeamMeeting[]
+}
+
+model TeamMember {
+  id              String           @id @default(cuid())
+  teamId          String
+  team            Team             @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  name            String
+  email           String
+  userId          String?
+  user            User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+  status          TeamMemberStatus @default(PENDING)
+  inviteTokenHash String?          @unique
+  inviteExpiresAt DateTime?
+  invitedAt       DateTime?
+  createdAt       DateTime         @default(now())
+
+  @@unique([teamId, email])
+  @@index([userId])
+  @@index([email])
+}
+
+model TeamMeeting {
+  id             String            @id @default(cuid())
+  teamId         String
+  team           Team              @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  startAt        DateTime
+  endAt          DateTime
+  status         TeamMeetingStatus @default(SCHEDULED)
+  reminderSentAt DateTime?
+  createdAt      DateTime          @default(now())
+
+  @@index([teamId, startAt])
+  @@index([startAt])
 }
 
 model Session {

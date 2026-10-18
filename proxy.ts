@@ -7,7 +7,10 @@ export function proxy(request: NextRequest) {
   const hasSession = Boolean(request.cookies.get(SESSION_COOKIE)?.value);
   const { pathname } = request.nextUrl;
   if (
-    (pathname.startsWith("/home") || pathname.startsWith("/book") || pathname.startsWith("/links")) &&
+    (pathname.startsWith("/home") ||
+      pathname.startsWith("/book") ||
+      pathname.startsWith("/links") ||
+      pathname.startsWith("/teams/meetings")) &&
     !hasSession
   ) {
     const url = request.nextUrl.clone();
@@ -20,5 +23,13 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/home", "/home/:path*", "/book", "/book/:path*", "/links", "/links/:path*"],
+  matcher: [
+    "/home",
+    "/home/:path*",
+    "/book",
+    "/book/:path*",
+    "/links",
+    "/links/:path*",
+    "/teams/meetings/:path*",
+  ],
 };

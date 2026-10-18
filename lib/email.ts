@@ -319,6 +319,87 @@ export async function sendMeetingReminderEmail(input: {
   });
 }
 
+export async function sendTeamInviteEmail(input: {
+  to: string;
+  name: string;
+  ownerName: string;
+  teamName: string;
+  link: string;
+}) {
+  const subject = `Join ${input.teamName} on Niko`;
+  const text = [
+    `Hi ${input.name},`,
+    "",
+    `${input.ownerName} added you to the team ${input.teamName}.`,
+    "Click here to join the team and set your schedule:",
+    input.link,
+    "",
+    "The link expires in 7 days. Your account is created only after you press the button on that page.",
+  ].join("\n");
+  const html = `
+    <p>Hi ${escapeHtml(input.name)},</p>
+    <p><strong>${escapeHtml(input.ownerName)}</strong> added you to the team <strong>${escapeHtml(input.teamName)}</strong>.</p>
+    <p><a href="${escapeHtml(input.link)}">Click here to join the team and set your schedule</a></p>
+    <p>The link expires in 7 days. Your account is created only after you press the button on that page.</p>
+  `;
+
+  await deliver({ to: input.to, subject, text, html, link: input.link });
+}
+
+export async function sendTeamScheduledEmail(input: { to: Recipient; teamName: string; when: string }) {
+  const subject = `Meeting scheduled on ${input.when}`;
+  const text = [
+    `Hi ${input.to.name},`,
+    "",
+    `Meeting scheduled on ${input.when}.`,
+    `Team: ${input.teamName}`,
+    "",
+    "A Join meeting button is in your Niko account. Ten minutes before it starts, Niko will email you again.",
+  ].join("\n");
+  const html = `
+    <p>Hi ${escapeHtml(input.to.name)},</p>
+    <p>Meeting scheduled on <strong>${escapeHtml(input.when)}</strong>.</p>
+    <p>Team: ${escapeHtml(input.teamName)}</p>
+    <p>A Join meeting button is in your Niko account. Ten minutes before it starts, Niko will email you again.</p>
+  `;
+
+  await deliver({
+    to: input.to.email,
+    subject,
+    text,
+    html,
+    userId: input.to.id,
+  });
+}
+
+export async function sendTeamReminderEmail(input: { to: Recipient; teamName: string; when: string; joinUrl: string }) {
+  const subject = `${input.teamName} starts in 10 minutes`;
+  const text = [
+    `Hi ${input.to.name},`,
+    "",
+    `Your team meeting starts in 10 minutes.`,
+    `Meeting scheduled on ${input.when}.`,
+    "",
+    "Join meeting:",
+    input.joinUrl,
+  ].join("\n");
+  const html = `
+    <p>Hi ${escapeHtml(input.to.name)},</p>
+    <p>Your team meeting starts in 10 minutes.</p>
+    <p>Meeting scheduled on ${escapeHtml(input.when)}.</p>
+    <p><a href="${escapeHtml(input.joinUrl)}">Join meeting</a></p>
+  `;
+
+  await deliver({
+    to: input.to.email,
+    subject,
+    text,
+    html,
+    userId: input.to.id,
+    link: input.joinUrl,
+  });
+}
+
 export async function sendMeetingLinkCancelledEmail(input: {
   host: Recipient;
   participant: Recipient;

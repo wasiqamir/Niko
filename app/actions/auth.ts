@@ -6,6 +6,7 @@ import { hashPassword, verifyPassword } from "@/lib/password";
 import { createSession, destroySession } from "@/lib/session";
 import { hashToken } from "@/lib/tokens";
 import { sendAccountVerification, sendPasswordReset } from "@/lib/email";
+import { activateTeamAfterVerify } from "@/lib/teams";
 import { loginSchema, resetPasswordSchema, signupSchema, type AuthState } from "@/lib/validators";
 
 function fieldErrors(error: {
@@ -245,6 +246,12 @@ export async function verifyEmail(_state: AuthState, formData: FormData): Promis
       data: { emailVerifiedAt: record.user.emailVerifiedAt ?? new Date() },
     });
     await prisma.verificationToken.deleteMany({ where: { userId: record.userId } });
+    try {
+      await activateTeamAfterVerify(record.userId);
+    } catch (error) {
+      unstable_rethrow(error);
+      console.error(error);
+    }
     await createSession(record.userId);
   } catch (error) {
     unstable_rethrow(error);
