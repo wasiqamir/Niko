@@ -36,7 +36,7 @@ export function TeamDesk({
   return (
     <section className="rise glass rounded-[2rem] p-6 sm:p-8">
       <p className="text-xs uppercase tracking-[0.22em] text-accent">Team</p>
-      <h2 className="mt-2 font-serif text-4xl tracking-tight">{name}</h2>
+      <h2 className="mt-2 font-serif text-3xl tracking-tight sm:text-4xl">{name}</h2>
       <p className="mt-3 max-w-xl text-sm leading-6 text-muted">
         {owner
           ? "When everyone has joined and set their hours, arrange today's meeting. Niko picks a time that fits the whole team."
@@ -73,9 +73,9 @@ export function TeamDesk({
       <ul className="mt-6 flex flex-col gap-3">
         {members.map((member) => (
           <li key={member.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line px-4 py-3">
-            <div>
+            <div className="min-w-0">
               <p className="font-medium">{member.name}</p>
-              <p className="text-sm text-muted">
+              <p className="break-all text-sm text-muted">
                 {member.email} · {member.role}
               </p>
             </div>

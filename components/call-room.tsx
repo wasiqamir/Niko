@@ -716,15 +716,17 @@ export function CallRoom({
 
   return (
     <div className="rise flex min-h-screen flex-col bg-[#10241c] text-background">
-      <header className="flex items-center justify-between gap-4 px-5 py-4">
-        <div>
+      <header className="flex items-start justify-between gap-3 px-4 py-4 sm:items-center sm:px-5">
+        <div className="min-w-0">
           <p className="text-xs uppercase tracking-[0.18em] text-gold">Live room</p>
-          <h1 className="font-serif text-2xl tracking-tight">{title}</h1>
+          <h1 className="truncate font-serif text-xl tracking-tight sm:text-2xl">{title}</h1>
         </div>
-        <p className="text-sm text-background/70">{alone ? "Waiting for the other person" : `${remotes.length + 1} here`}</p>
+        <p className="shrink-0 text-right text-xs text-background/70 sm:text-sm">
+          {alone ? "Waiting" : `${remotes.length + 1} here`}
+        </p>
       </header>
 
-      <div className="flex flex-1 flex-col gap-3 px-4 pb-32 sm:px-5">
+      <div className="flex min-h-0 flex-1 flex-col gap-3 px-3 pb-36 sm:px-5">
         {screens.length > 0 ? (
           <div className="grid max-h-[46vh] gap-3 overflow-y-auto sm:grid-cols-2">
             {screens.map((tile) => (
@@ -732,7 +734,7 @@ export function CallRoom({
             ))}
           </div>
         ) : null}
-        <div className="relative grid h-full min-h-[32rem] w-full flex-1 grid-cols-2 overflow-hidden rounded-[28px] bg-black">
+        <div className="relative grid h-[min(32rem,calc(100dvh-13rem))] min-h-48 w-full flex-1 grid-cols-2 overflow-hidden rounded-2xl bg-black sm:min-h-[28rem] sm:rounded-[28px]">
           <Pane
             seat={hostSeat}
             position="Host"
@@ -766,31 +768,31 @@ export function CallRoom({
         <p className="fixed bottom-24 left-0 right-0 px-5 text-center text-sm text-gold">{status}</p>
       ) : null}
 
-      <div className="fixed inset-x-0 bottom-0 flex flex-wrap items-center justify-center gap-3 border-t border-white/10 bg-[#10241c]/75 px-5 py-4 backdrop-blur-xl">
+      <div className="fixed inset-x-0 bottom-0 grid grid-cols-2 gap-2 border-t border-white/10 bg-[#10241c]/80 px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-xl sm:flex sm:flex-wrap sm:items-center sm:justify-center sm:gap-3 sm:px-5 sm:pb-4">
         <button
           type="button"
           onClick={toggleMic}
-          className="h-12 rounded-full bg-background px-5 text-sm font-medium text-foreground"
+          className="h-11 rounded-full bg-background px-3 text-sm font-medium text-foreground sm:h-12 sm:px-5"
         >
           {micOn ? "Mute" : "Unmute"}
         </button>
         <button
           type="button"
           onClick={toggleCamera}
-          className="h-12 rounded-full bg-background px-5 text-sm font-medium text-foreground"
+          className="h-11 rounded-full bg-background px-3 text-sm font-medium text-foreground sm:h-12 sm:px-5"
         >
           {cameraOn ? "Camera off" : "Camera on"}
         </button>
         <button
           type="button"
           onClick={() => roomApi.current.share()}
-          className="h-12 rounded-full bg-gold px-5 text-sm font-medium text-foreground"
+          className="h-11 rounded-full bg-gold px-3 text-sm font-medium text-foreground sm:h-12 sm:px-5"
         >
-          {screens.some((tile) => tile.local) ? "Share another screen" : "Share a screen"}
+          {screens.some((tile) => tile.local) ? "Share another" : "Share a screen"}
         </button>
         <Link
           href={leaveHref}
-          className="inline-flex h-12 items-center rounded-full bg-clay px-5 text-sm font-medium text-background"
+          className="inline-flex h-11 items-center justify-center rounded-full bg-clay px-3 text-sm font-medium text-background sm:h-12 sm:px-5"
         >
           Leave
         </Link>
@@ -976,7 +978,7 @@ function Pane({
         )}
       </div>
       <div className="border-t border-white/15 bg-[#0c1a14] px-4 py-3 text-center">
-        <p className="truncate text-base font-medium">{seat.name}</p>
+        <p className="truncate text-sm font-medium sm:text-base">{seat.name}</p>
         <p className="mt-0.5 text-xs uppercase tracking-[0.16em] text-gold">{position}</p>
       </div>
     </div>
@@ -1022,7 +1024,7 @@ function Lobby({
     <div className="flex min-h-screen flex-col items-center justify-center bg-[#10241c] px-6 text-center text-background">
       <p className="text-xs uppercase tracking-[0.18em] text-gold">Live room</p>
       <h1 className="mt-3 font-serif text-4xl tracking-tight">{title}</h1>
-      <p className="mt-10 font-serif text-7xl tracking-tight">
+      <p className="mt-10 font-serif text-5xl tracking-tight sm:text-7xl">
         {formatMinuteClock(new Date(now ?? startsAt))}
       </p>
       <p className="mt-2 text-sm text-background/70">{TIME_ZONE_LABEL}</p>

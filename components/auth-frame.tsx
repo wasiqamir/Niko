@@ -42,7 +42,7 @@ export function AuthFrame({
           </div>
         </aside>
         <section className="rise rise-2 glass w-full rounded-[2rem] p-6 sm:p-10">
-          <h1 className="font-serif text-4xl tracking-tight sm:text-5xl">{title}</h1>
+          <h1 className="font-serif text-4xl tracking-tight text-balance sm:text-5xl">{title}</h1>
           <p className="mt-3 max-w-lg text-base leading-7 text-muted">{subtitle}</p>
           <div className="mt-8">{children}</div>
         </section>

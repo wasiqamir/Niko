@@ -79,15 +79,16 @@ export function MeetingCalendar({ today, events }: { today: string; events: Cale
           </div>
         </div>
 
-        <div className="grid grid-cols-7 border-b border-line bg-foam/70">
+        <div className="grid border-b border-line bg-foam/70 [grid-template-columns:repeat(7,minmax(0,1fr))]">
           {WEEKDAYS.map((day) => (
-            <div key={day} className="px-1 py-2 text-center text-[11px] font-semibold tracking-wide text-muted sm:text-xs">
-              {day}
+            <div key={day} className="px-0.5 py-2 text-center text-[10px] font-semibold tracking-wide text-muted sm:px-1 sm:text-xs">
+              <span className="sm:hidden">{day.slice(0, 1)}</span>
+              <span className="hidden sm:inline">{day}</span>
             </div>
           ))}
         </div>
 
-        <div className="grid grid-cols-7 grid-rows-6">
+        <div className="grid grid-rows-6 [grid-template-columns:repeat(7,minmax(0,1fr))]">
           {cells.map((cell) => {
             const past = cell.key < today;
             const selected = cell.key === picked;
@@ -98,20 +99,20 @@ export function MeetingCalendar({ today, events }: { today: string; events: Cale
                 type="button"
                 disabled={past}
                 onClick={() => choose(cell.key)}
-                className={`flex min-h-20 flex-col border-r border-b border-line p-1.5 text-left transition sm:min-h-28 sm:p-2 ${
+                className={`flex min-h-14 min-w-0 flex-col border-r border-b border-line p-1 text-left transition sm:min-h-28 sm:p-2 ${
                   past ? "cursor-default bg-background/50 text-muted/45" : "hover:bg-foam/70"
                 } ${selected ? "bg-foam ring-2 ring-inset ring-forest" : ""} ${
                   cell.inMonth ? "" : "bg-background/30"
                 }`}
               >
                 <span
-                  className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-sm ${
+                  className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs sm:h-7 sm:w-7 sm:text-sm ${
                     cell.key === today ? "bg-forest font-medium text-background" : ""
                   } ${cell.inMonth ? "" : "text-muted"}`}
                 >
                   {cell.day}
                 </span>
-                <span className="mt-1 flex flex-col gap-1">
+                <span className="mt-1 hidden flex-col gap-1 sm:flex">
                   {dayEvents.slice(0, 2).map((event) => (
                     <span
                       key={event.id}
@@ -124,6 +125,9 @@ export function MeetingCalendar({ today, events }: { today: string; events: Cale
                     <span className="text-[10px] text-muted">+{dayEvents.length - 2} more</span>
                   ) : null}
                 </span>
+                {dayEvents.length > 0 ? (
+                  <span className="mx-auto mt-1 h-1.5 w-1.5 rounded-full bg-forest sm:hidden" />
+                ) : null}
               </button>
             );
           })}

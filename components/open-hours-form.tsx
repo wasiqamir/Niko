@@ -86,7 +86,7 @@ export function OpenHoursEditor({
                       value={range.startHour}
                       aria-label={`${day.name} starts`}
                       onChange={(event) => updateRange(range.key, { startHour: Number(event.target.value) })}
-                      className="h-10 rounded-xl border border-line bg-background px-2 text-sm"
+                      className="h-10 min-w-0 flex-1 rounded-xl border border-line bg-background px-2 text-sm sm:flex-none"
                     >
                       {START_HOURS.map((hour) => (
                         <option key={hour} value={hour}>
@@ -99,7 +99,7 @@ export function OpenHoursEditor({
                       value={range.endHour}
                       aria-label={`${day.name} ends`}
                       onChange={(event) => updateRange(range.key, { endHour: Number(event.target.value) })}
-                      className="h-10 rounded-xl border border-line bg-background px-2 text-sm"
+                      className="h-10 min-w-0 flex-1 rounded-xl border border-line bg-background px-2 text-sm sm:flex-none"
                     >
                       {END_HOURS.filter((hour) => hour > range.startHour).map((hour) => (
                         <option key={hour} value={hour}>

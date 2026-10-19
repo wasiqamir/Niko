@@ -6,7 +6,7 @@ export function ModeSwitch({ mode = "home" }: { mode?: "home" | "individual" | "
       <Link
         href="/signup"
         aria-current={mode === "individual" ? "page" : undefined}
-        className={`rounded-full px-4 py-2 text-sm font-medium transition ${
+        className={`rounded-full px-3 py-2 text-sm font-medium transition sm:px-4 ${
           mode === "individual" ? "bg-forest text-background" : "text-foreground hover:bg-foam"
         }`}
       >
@@ -15,7 +15,7 @@ export function ModeSwitch({ mode = "home" }: { mode?: "home" | "individual" | "
       <Link
         href="/teams"
         aria-current={mode === "teams" ? "page" : undefined}
-        className={`rounded-full px-4 py-2 text-sm font-medium transition ${
+        className={`rounded-full px-3 py-2 text-sm font-medium transition sm:px-4 ${
           mode === "teams" ? "bg-forest text-background" : "text-foreground hover:bg-foam"
         }`}
       >

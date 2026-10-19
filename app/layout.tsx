@@ -12,6 +12,12 @@ const fraunces = Fraunces({
   subsets: ["latin"],
 });
 
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover" as const,
+};
+
 export const metadata: Metadata = {
   title: {
     default: "Niko",

@@ -35,7 +35,7 @@ async function PublicHome() {
       <main className="grid flex-1 items-center gap-10 py-12 lg:grid-cols-[1.15fr_0.85fr] lg:py-20">
         <section className="rise">
           <p className="text-xs font-medium tracking-[0.28em] text-accent uppercase">Niko</p>
-          <h1 className="mt-5 max-w-xl font-serif text-6xl leading-[0.95] tracking-tight sm:text-7xl">
+          <h1 className="mt-5 max-w-xl font-serif text-4xl leading-[0.98] tracking-tight sm:text-6xl sm:leading-[0.95] lg:text-7xl">
             Your meetings live here.
           </h1>
           <div className="gold-rule mt-6" />
@@ -50,7 +50,7 @@ async function PublicHome() {
           <div className="orb absolute -bottom-16 left-8 h-40 w-40 rounded-full bg-gold/20 [animation-delay:-8s]" />
           <div className="relative">
             <p className="text-xs uppercase tracking-[0.22em] text-gold">The hour</p>
-            <p className="mt-4 font-serif text-4xl leading-tight tracking-tight">Held quietly, then shared.</p>
+            <p className="mt-4 font-serif text-3xl leading-tight tracking-tight sm:text-4xl">Held quietly, then shared.</p>
             <ol className="mt-8 flex flex-col gap-5">
               {[
                 ["01", "Choose Individual or Teams"],

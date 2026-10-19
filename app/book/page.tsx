@@ -150,7 +150,7 @@ async function Schedule({
           ) : (
             <ul className="mt-6 divide-y divide-line overflow-hidden rounded-2xl border border-line">
               {slots.map((slot) => (
-                <li key={slot.start.toISOString()} className="flex items-center justify-between gap-4 px-4 py-3">
+                <li key={slot.start.toISOString()} className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                   <span className="text-sm font-medium">{formatRange(slot.start)}</span>
                   {slot.booked ? (
                     <span className="text-sm text-clay">

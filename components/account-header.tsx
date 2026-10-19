@@ -19,7 +19,7 @@ async function AccountMenu() {
   const user = await getCurrentUser();
 
   return (
-    <div className="flex items-center gap-4">
+    <div className="flex min-w-0 flex-wrap items-center justify-end gap-x-3 gap-y-2 sm:gap-x-4">
       {user.accountType === "PARTICIPANT" ? (
         <Link href="/book" className="text-sm font-medium transition hover:text-accent">
           Find a host

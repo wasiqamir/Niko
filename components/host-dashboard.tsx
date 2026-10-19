@@ -33,12 +33,12 @@ export function HostDashboard({
         <div className="relative grid gap-8 p-7 sm:p-10 lg:grid-cols-[1.4fr_0.8fr] lg:items-end">
           <div>
             <p className="text-xs uppercase tracking-[0.22em] text-gold">Host desk</p>
-            <h1 className="mt-3 font-serif text-5xl tracking-tight sm:text-6xl">Hello, {firstName}.</h1>
+            <h1 className="mt-3 font-serif text-4xl tracking-tight sm:text-5xl lg:text-6xl">Hello, {firstName}.</h1>
             <p className="mt-4 max-w-xl text-base leading-7 text-background/80">
               People find you by searching your email. You can also hold an hour yourself and send them a
               Niko link. That hour stays closed for everyone else.
             </p>
-            <p className="mt-5 inline-flex rounded-full bg-background/10 px-4 py-2 text-sm">{email}</p>
+            <p className="mt-5 inline-flex max-w-full break-all rounded-full bg-background/10 px-4 py-2 text-sm">{email}</p>
             <div className="mt-6">
               <Link
                 href="/links/new"
@@ -48,15 +48,15 @@ export function HostDashboard({
               </Link>
             </div>
           </div>
-          <dl className="grid grid-cols-3 gap-3">
+          <dl className="grid grid-cols-3 gap-2 sm:gap-3">
             {[
               ["Open days", openDays],
               ["Coming up", upcoming],
               ["Your links", held],
             ].map(([label, value]) => (
               <div key={label} className="rounded-2xl bg-background/10 px-3 py-4 backdrop-blur-sm">
-                <dt className="text-xs uppercase tracking-[0.14em] text-background/70">{label}</dt>
-                <dd className="mt-2 font-serif text-3xl">{value}</dd>
+                <dt className="text-[10px] uppercase tracking-[0.12em] text-background/70 sm:text-xs sm:tracking-[0.14em]">{label}</dt>
+                <dd className="mt-2 font-serif text-2xl sm:text-3xl">{value}</dd>
               </div>
             ))}
           </dl>
