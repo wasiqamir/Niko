@@ -6,7 +6,7 @@ import { Logo } from "@/components/logo";
 
 export function AccountHeader() {
   return (
-    <header className="flex items-center justify-between gap-4 py-5">
+    <header className="site-header">
       <Logo href="/home" />
       <Suspense fallback={<div className="h-5 w-40 rounded bg-line" />}>
         <AccountMenu />
@@ -21,17 +21,17 @@ async function AccountMenu() {
   return (
     <div className="flex items-center gap-4">
       {user.accountType === "PARTICIPANT" ? (
-        <Link href="/book" className="text-sm font-medium">
+        <Link href="/book" className="text-sm font-medium transition hover:text-accent">
           Find a host
         </Link>
       ) : (
-        <Link href="/links/new" className="text-sm font-medium">
+        <Link href="/links/new" className="rounded-full bg-forest px-4 py-2 text-sm font-medium text-background transition hover:bg-accent">
           Create link
         </Link>
       )}
       <span className="hidden text-sm text-muted sm:inline">{user.email}</span>
       <form action={logout}>
-        <button type="submit" className="text-sm font-medium">
+        <button type="submit" className="text-sm font-medium transition hover:text-accent">
           Log out
         </button>
       </form>

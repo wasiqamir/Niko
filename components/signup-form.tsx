@@ -30,7 +30,7 @@ export function SignupForm({ defaultType }: { defaultType?: AccountChoice }) {
                 required
                 className="peer sr-only"
               />
-              <span className="block h-full cursor-pointer rounded-2xl border border-line bg-surface p-4 transition peer-checked:border-foreground peer-checked:bg-accent/10 peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-foreground">
+              <span className="lift block h-full cursor-pointer rounded-2xl border border-line bg-background/70 p-4 peer-checked:border-forest peer-checked:bg-foam peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-foreground">
                 <span className="flex items-center justify-between gap-3">
                   <span className="inline-flex items-center gap-2 text-xs font-medium tracking-wide text-muted uppercase">
                     <span

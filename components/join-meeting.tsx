@@ -39,7 +39,7 @@ export function JoinMeeting({
   return (
     <Link
       href={href}
-      className={`inline-flex items-center rounded-xl bg-foreground px-4 text-sm font-medium text-background ${large ? "h-12 w-full justify-center px-5" : "mt-3 h-10"}`}
+      className={`inline-flex items-center rounded-full bg-forest px-4 text-sm font-medium text-background transition hover:-translate-y-0.5 hover:bg-accent ${large ? "h-12 w-full justify-center px-5" : "mt-3 h-10"}`}
     >
       {label}
     </Link>

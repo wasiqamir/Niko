@@ -34,7 +34,7 @@ export function TeamDesk({
   notice?: string;
 }) {
   return (
-    <section className="rounded-[2rem] border border-line bg-surface p-6 sm:p-8">
+    <section className="rise glass rounded-[2rem] p-6 sm:p-8">
       <p className="text-xs uppercase tracking-[0.22em] text-accent">Team</p>
       <h2 className="mt-2 font-serif text-4xl tracking-tight">{name}</h2>
       <p className="mt-3 max-w-xl text-sm leading-6 text-muted">

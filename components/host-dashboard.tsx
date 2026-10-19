@@ -27,9 +27,9 @@ export function HostDashboard({
 }) {
   return (
     <div className="flex flex-col gap-8">
-      <section className="relative overflow-hidden rounded-[2rem] bg-forest text-background">
-        <div className="absolute -right-16 -top-24 h-64 w-64 rounded-full bg-accent/50" />
-        <div className="absolute -bottom-20 left-1/2 h-48 w-48 rounded-full bg-clay/40" />
+      <section className="rise relative overflow-hidden rounded-[2rem] bg-forest text-background shadow-2xl">
+        <div className="orb absolute -right-16 -top-24 h-64 w-64 rounded-full bg-accent/50" />
+        <div className="orb absolute -bottom-20 left-1/2 h-48 w-48 rounded-full bg-clay/40 [animation-delay:-9s]" />
         <div className="relative grid gap-8 p-7 sm:p-10 lg:grid-cols-[1.4fr_0.8fr] lg:items-end">
           <div>
             <p className="text-xs uppercase tracking-[0.22em] text-gold">Host desk</p>
@@ -42,7 +42,7 @@ export function HostDashboard({
             <div className="mt-6">
               <Link
                 href="/links/new"
-                className="inline-flex h-12 items-center rounded-full bg-gold px-5 text-sm font-medium text-forest"
+                className="inline-flex h-12 items-center rounded-full bg-gold px-5 text-sm font-medium text-forest transition hover:-translate-y-0.5"
               >
                 Create a meeting link
               </Link>
@@ -54,7 +54,7 @@ export function HostDashboard({
               ["Coming up", upcoming],
               ["Your links", held],
             ].map(([label, value]) => (
-              <div key={label} className="rounded-2xl bg-background/10 px-3 py-4">
+              <div key={label} className="rounded-2xl bg-background/10 px-3 py-4 backdrop-blur-sm">
                 <dt className="text-xs uppercase tracking-[0.14em] text-background/70">{label}</dt>
                 <dd className="mt-2 font-serif text-3xl">{value}</dd>
               </div>
@@ -64,7 +64,7 @@ export function HostDashboard({
       </section>
 
       {freshUrl ? (
-        <section className="rounded-3xl border border-accent/30 bg-foam p-6 sm:p-8">
+        <section className="rise rise-2 rounded-[2rem] border border-accent/30 bg-foam p-6 sm:p-8">
           <h2 className="font-serif text-3xl tracking-tight">Your link is ready.</h2>
           <p className="mt-2 max-w-xl text-sm leading-6 text-muted">
             Share it. When a participant opens it and joins, the meeting is on both schedules. This hour
@@ -81,7 +81,7 @@ export function HostDashboard({
         <Notice tone="error">The meeting is cancelled and the hour is open, but an email could not be sent.</Notice>
       ) : null}
 
-      <section className="rounded-[2rem] border border-line bg-surface p-6 sm:p-8">
+      <section className="rise rise-2 glass rounded-[2rem] p-6 sm:p-8">
         <h2 className="font-serif text-3xl tracking-tight">Open hours</h2>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
           Each day has its own hours. Monday can be 9:00–11:00 and also 2:00–3:00. A day with no blocks is
@@ -90,7 +90,7 @@ export function HostDashboard({
         <OpenHoursEditor windows={windows} />
       </section>
 
-      <section className="rounded-[2rem] border border-line bg-surface p-6 sm:p-8">
+      <section className="rise rise-3 glass rounded-[2rem] p-6 sm:p-8">
         <div className="flex items-end justify-between gap-4">
           <h2 className="font-serif text-3xl tracking-tight">Meetings</h2>
           <Link href="/links/new" className="text-sm font-medium text-accent">

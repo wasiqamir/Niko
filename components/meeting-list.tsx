@@ -33,8 +33,8 @@ export function MeetingList({ meetings, empty }: { meetings: MeetingCard[]; empt
       {meetings.map((meeting) => (
         <li
           key={meeting.id}
-          className={`rounded-2xl border px-4 py-4 ${
-            meeting.tone === "scheduled" ? "border-line bg-background" : "border-line bg-line/40"
+          className={`lift rounded-2xl border px-4 py-4 ${
+            meeting.tone === "scheduled" ? "border-line bg-background/80" : "border-line bg-line/40"
           }`}
         >
           <p className="text-xs uppercase tracking-[0.16em] text-muted">{meeting.kicker}</p>

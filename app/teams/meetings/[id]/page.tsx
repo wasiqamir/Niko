@@ -61,9 +61,9 @@ async function ComingSoon({ params }: { params: Promise<{ id: string }> }) {
 
   return (
     <main className="relative flex flex-1 items-center justify-center overflow-hidden py-16">
-      <div className="absolute -left-24 top-8 h-72 w-72 rounded-full bg-foam" />
-      <div className="absolute -right-20 bottom-0 h-64 w-64 rounded-full bg-gold/50" />
-      <div className="relative w-full max-w-xl rounded-[2rem] border border-line bg-surface px-8 py-16 text-center shadow-sm sm:px-14">
+      <div className="orb absolute -left-24 top-8 h-72 w-72 rounded-full bg-foam" />
+      <div className="orb absolute -right-20 bottom-0 h-64 w-64 rounded-full bg-gold/40 [animation-delay:-8s]" />
+      <div className="rise glass relative w-full max-w-xl rounded-[2rem] px-8 py-16 text-center sm:px-14">
         <p className="text-xs uppercase tracking-[0.28em] text-accent">{meeting.team.name}</p>
         <h1 className="mt-5 font-serif text-5xl leading-[1.05] tracking-tight sm:text-6xl">
           This Feature Is Coming Soon

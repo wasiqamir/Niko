@@ -16,7 +16,7 @@ export function SubmitButton({
   const { pending } = useFormStatus();
   const className =
     variant === "primary"
-      ? `inline-flex h-12 items-center justify-center rounded-xl bg-foreground px-5 text-sm font-medium text-background transition hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60 ${fullWidth ? "w-full" : ""}`
+      ? `inline-flex h-12 items-center justify-center rounded-full bg-forest px-5 text-sm font-medium text-background shadow-sm transition hover:-translate-y-0.5 hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 ${fullWidth ? "w-full" : ""}`
       : "text-sm font-medium underline decoration-line underline-offset-4 hover:decoration-foreground disabled:opacity-60";
 
   return (

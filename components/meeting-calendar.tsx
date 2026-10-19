@@ -41,7 +41,7 @@ export function MeetingCalendar({ today, events }: { today: string; events: Cale
 
   return (
     <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
-      <section className="overflow-hidden rounded-[28px] border border-line bg-surface shadow-sm">
+      <section className="rise glass overflow-hidden rounded-[28px]">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-4 sm:px-6">
           <div>
             <p className="text-xs uppercase tracking-[0.18em] text-accent">Pakistan time</p>
@@ -98,8 +98,8 @@ export function MeetingCalendar({ today, events }: { today: string; events: Cale
                 type="button"
                 disabled={past}
                 onClick={() => choose(cell.key)}
-                className={`flex min-h-20 flex-col border-r border-b border-line p-1.5 text-left sm:min-h-28 sm:p-2 ${
-                  past ? "cursor-default bg-background/50 text-muted/45" : "hover:bg-foam/40"
+                className={`flex min-h-20 flex-col border-r border-b border-line p-1.5 text-left transition sm:min-h-28 sm:p-2 ${
+                  past ? "cursor-default bg-background/50 text-muted/45" : "hover:bg-foam/70"
                 } ${selected ? "bg-foam ring-2 ring-inset ring-forest" : ""} ${
                   cell.inMonth ? "" : "bg-background/30"
                 }`}
@@ -130,7 +130,7 @@ export function MeetingCalendar({ today, events }: { today: string; events: Cale
         </div>
       </section>
 
-      <aside className="rounded-[28px] border border-line bg-surface p-5 shadow-sm sm:p-6 xl:sticky xl:top-6">
+      <aside className="rise rise-2 glass rounded-[28px] p-5 sm:p-6 xl:sticky xl:top-24">
         {picked ? (
           <DayForm
             key={picked}

@@ -173,12 +173,12 @@ async function AccountHome({
   return (
     <div>
       {team}
-      <p className="inline-flex items-center gap-2 text-sm text-muted">
+      <p className="rise inline-flex items-center gap-2 text-sm text-muted">
         <span className="h-2 w-2 rounded-full bg-clay" />
         {account?.audience ?? "Account"} · Free · Email confirmed
       </p>
-      <h1 className="mt-3 font-serif text-4xl tracking-tight sm:text-5xl">Hello, {firstName}.</h1>
-      <section className="mt-10 rounded-3xl border border-line bg-surface p-6 sm:p-8">
+      <h1 className="rise rise-2 mt-3 font-serif text-5xl tracking-tight sm:text-6xl">Hello, {firstName}.</h1>
+      <section className="rise rise-3 glass mt-10 rounded-[2rem] p-6 sm:p-8">
         <h2 className="font-serif text-2xl tracking-tight">Find a host</h2>
         <p className="mt-2 max-w-xl text-sm leading-6 text-muted">
           Search the Gmail the host shared with you. You will see which hours are open and which are
@@ -188,7 +188,7 @@ async function AccountHome({
           <HostSearchForm />
         </div>
       </section>
-      <section className="mt-8 rounded-3xl border border-line bg-surface p-6 sm:p-8">
+      <section className="rise rise-4 glass mt-8 rounded-[2rem] p-6 sm:p-8">
         <h2 className="font-serif text-2xl tracking-tight">Meetings</h2>
         <div className="mt-6">
           <MeetingList meetings={rows} empty="No meetings yet." />

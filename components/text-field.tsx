@@ -18,7 +18,7 @@ export function TextField({ label, error, id, name, ...props }: TextFieldProps) 
         name={name}
         aria-invalid={Boolean(error)}
         aria-describedby={error ? `${inputId}-error` : undefined}
-        className="h-12 w-full rounded-xl border border-line bg-surface px-3 text-[15px] placeholder:text-muted/70"
+        className="h-12 w-full rounded-2xl border border-line bg-background/80 px-3 text-[15px] transition placeholder:text-muted/70"
         {...props}
       />
       {error ? (

@@ -3,6 +3,12 @@ import Link from "next/link";
 import { Logo } from "@/components/logo";
 import { ModeSwitch } from "@/components/mode-switch";
 
+const ASIDE: Record<"home" | "individual" | "teams", { kicker: string; line: string }> = {
+  home: { kicker: "Niko", line: "A calmer hour, kept for the people in it." },
+  individual: { kicker: "Individual", line: "Your own account, for hosting or joining." },
+  teams: { kicker: "Teams", line: "One hour that fits the whole group." },
+};
+
 export function AuthFrame({
   title,
   subtitle,
@@ -16,21 +22,30 @@ export function AuthFrame({
   mode?: "home" | "individual" | "teams";
   children: ReactNode;
 }) {
+  const aside = ASIDE[mode];
+
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-5">
-      <header className="flex flex-wrap items-center justify-between gap-3 py-5">
+      <header className="site-header">
         <Logo />
         <ModeSwitch mode={mode} />
-        <Link href={alternate.href} className="text-sm font-medium">
+        <Link href={alternate.href} className="text-sm font-medium transition hover:text-accent">
           {alternate.label}
         </Link>
       </header>
-      <main className="flex flex-1 items-start justify-center py-8 sm:items-center sm:py-12">
-        <div className="w-full max-w-xl">
+      <main className="grid flex-1 items-center gap-8 py-8 lg:grid-cols-[0.85fr_1.15fr] lg:py-14">
+        <aside className="rise relative hidden overflow-hidden rounded-[2rem] bg-forest p-10 text-background lg:block">
+          <div className="orb absolute -right-12 -top-12 h-40 w-40 rounded-full bg-gold/25" />
+          <div className="relative">
+            <p className="text-xs uppercase tracking-[0.22em] text-gold">{aside.kicker}</p>
+            <p className="mt-6 font-serif text-4xl leading-tight tracking-tight">{aside.line}</p>
+          </div>
+        </aside>
+        <section className="rise rise-2 glass w-full rounded-[2rem] p-6 sm:p-10">
           <h1 className="font-serif text-4xl tracking-tight sm:text-5xl">{title}</h1>
           <p className="mt-3 max-w-lg text-base leading-7 text-muted">{subtitle}</p>
           <div className="mt-8">{children}</div>
-        </div>
+        </section>
       </main>
     </div>
   );

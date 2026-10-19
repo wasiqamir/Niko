@@ -715,7 +715,7 @@ export function CallRoom({
   if (participantSeats.length === 0) participantSeats.push(emptySeat("participant-wait"));
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#10241c] text-background">
+    <div className="rise flex min-h-screen flex-col bg-[#10241c] text-background">
       <header className="flex items-center justify-between gap-4 px-5 py-4">
         <div>
           <p className="text-xs uppercase tracking-[0.18em] text-gold">Live room</p>
@@ -766,7 +766,7 @@ export function CallRoom({
         <p className="fixed bottom-24 left-0 right-0 px-5 text-center text-sm text-gold">{status}</p>
       ) : null}
 
-      <div className="fixed inset-x-0 bottom-0 flex flex-wrap items-center justify-center gap-3 bg-[#10241c]/90 px-5 py-4">
+      <div className="fixed inset-x-0 bottom-0 flex flex-wrap items-center justify-center gap-3 border-t border-white/10 bg-[#10241c]/75 px-5 py-4 backdrop-blur-xl">
         <button
           type="button"
           onClick={toggleMic}

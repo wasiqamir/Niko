@@ -97,8 +97,8 @@ async function Planner() {
 
   return (
     <div>
-      <p className="text-xs uppercase tracking-[0.22em] text-accent">New meeting</p>
-      <h1 className="mt-3 font-serif text-4xl tracking-tight sm:text-5xl">Choose a date.</h1>
+      <p className="rise text-xs uppercase tracking-[0.22em] text-accent">New meeting</p>
+      <h1 className="rise rise-2 mt-3 font-serif text-5xl tracking-tight sm:text-6xl">Choose a date.</h1>
       <p className="mt-3 max-w-xl text-base leading-7 text-muted">
         The calendar shows the meetings already held. Click a date, then fill in the time, the
         participant, and the meeting.
