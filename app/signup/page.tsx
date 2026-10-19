@@ -12,6 +12,7 @@ export default function SignupPage(props: {
 }) {
   return (
     <AuthFrame
+      mode="individual"
       title="Create your account"
       subtitle="Tell Niko which account you need. We'll email you a link to confirm it. Both kinds are free."
       alternate={{ href: "/login", label: "Log in" }}

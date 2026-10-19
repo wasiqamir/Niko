@@ -7,13 +7,13 @@ export function AuthFrame({
   title,
   subtitle,
   alternate,
-  mode = "individual",
+  mode = "home",
   children,
 }: {
   title: string;
   subtitle: string;
   alternate: { href: string; label: string };
-  mode?: "individual" | "teams";
+  mode?: "home" | "individual" | "teams";
   children: ReactNode;
 }) {
   return (
