@@ -25,6 +25,22 @@ type Seat = {
   cameraOn: boolean;
   waiting: boolean;
 };
+type ScreenTile = {
+  id: string;
+  peerId: string;
+  name: string;
+  label: string;
+  stream: MediaStream;
+  local: boolean;
+};
+type LocalShare = {
+  id: string;
+  stream: MediaStream;
+  track: MediaStreamTrack;
+  label: string;
+};
+
+const SCREEN_LIMIT = 4;
 
 const ICE_SERVERS: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];
 
@@ -59,8 +75,13 @@ export function CallRoom({
   const [status, setStatus] = useState("Opening your camera and microphone…");
   const [alone, setAlone] = useState(true);
   const [needSound, setNeedSound] = useState(false);
+  const [screens, setScreens] = useState<ScreenTile[]>([]);
   const soundBlocked = useRef(() => setNeedSound(true));
   const soundReady = useRef(() => setNeedSound(false));
+  const roomApi = useRef<{ share: () => void; stop: (id: string) => void }>({
+    share: () => undefined,
+    stop: () => undefined,
+  });
 
   useEffect(() => {
     const end = new Date(endsAt).getTime();
@@ -82,6 +103,12 @@ export function CallRoom({
     const audios = new Map<string, MediaStream>();
     const iceQueue = new Map<string, RTCIceCandidateInit[]>();
     const restarted = new Set<string>();
+    const localShares = new Map<string, LocalShare>();
+    const remoteTiles = new Map<string, ScreenTile>();
+    const remoteScreenIds = new Set<string>();
+    const screenLabels = new Map<string, string>();
+    const trackOwners = new Map<string, { remoteId: string; track: MediaStreamTrack }>();
+    const pendingOffer = new Set<string>();
     let stream: MediaStream | null = null;
     let after = 0;
     let cancelled = false;
@@ -107,7 +134,130 @@ export function CallRoom({
       for (const pc of pcs.values()) pc.close();
       pcs.clear();
       stream?.getTracks().forEach((track) => track.stop());
+      for (const share of localShares.values()) share.track.stop();
+      localShares.clear();
     }
+
+    function paintScreens() {
+      const local = [...localShares.values()].map((share) => ({
+        id: share.id,
+        peerId,
+        name,
+        label: share.label,
+        stream: share.stream,
+        local: true,
+      }));
+      setScreens([...local, ...remoteTiles.values()]);
+    }
+
+    function announce(remoteId: string, share: LocalShare, active: boolean) {
+      void post({
+        toId: remoteId,
+        kind: "share",
+        payload: JSON.stringify({ streamId: share.stream.id, label: share.label, active }),
+      });
+    }
+
+    function renegotiate(remoteId: string) {
+      const pc = pcs.get(remoteId);
+      if (!pc || pc.signalingState !== "stable") {
+        pendingOffer.add(remoteId);
+        return;
+      }
+      pendingOffer.delete(remoteId);
+      void createOffer(remoteId);
+    }
+
+    function settle(remoteId: string) {
+      if (!pendingOffer.has(remoteId)) return;
+      pendingOffer.delete(remoteId);
+      void createOffer(remoteId);
+    }
+
+    function showRemoteScreen(remoteId: string, streamId: string, track: MediaStreamTrack, label: string) {
+      const camera = videos.get(remoteId);
+      if (camera?.getTracks().some((item) => item.id === track.id)) {
+        camera.removeTrack(track);
+        publish(remoteId);
+      }
+      const tile: ScreenTile = {
+        id: streamId,
+        peerId: remoteId,
+        name: names.get(remoteId) ?? "Guest",
+        label,
+        stream: new MediaStream([track]),
+        local: false,
+      };
+      remoteTiles.set(streamId, tile);
+      track.onended = () => {
+        remoteTiles.delete(streamId);
+        remoteScreenIds.delete(streamId);
+        paintScreens();
+      };
+      paintScreens();
+    }
+
+    async function shareScreen() {
+      if (localShares.size >= SCREEN_LIMIT) {
+        setStatus("You can share up to 4 screens.");
+        return;
+      }
+      if (!navigator.mediaDevices?.getDisplayMedia) {
+        setStatus("This browser cannot share a screen.");
+        return;
+      }
+      let display: MediaStream;
+      try {
+        display = await navigator.mediaDevices.getDisplayMedia({
+          video: { frameRate: { ideal: 15, max: 30 } },
+          audio: false,
+        });
+      } catch {
+        return;
+      }
+      if (cancelled) {
+        display.getTracks().forEach((track) => track.stop());
+        return;
+      }
+      const track = display.getVideoTracks()[0];
+      if (!track) {
+        display.getTracks().forEach((item) => item.stop());
+        return;
+      }
+      track.contentHint = "detail";
+      const share: LocalShare = {
+        id: display.id,
+        stream: display,
+        track,
+        label: prettyScreen(track.label, localShares.size + 1),
+      };
+      localShares.set(share.id, share);
+      track.onended = () => stopShare(share.id);
+      for (const [remoteId, pc] of pcs) {
+        if (!pc.getSenders().some((sender) => sender.track === track)) pc.addTrack(track, display);
+        announce(remoteId, share, true);
+        renegotiate(remoteId);
+      }
+      paintScreens();
+      setStatus("");
+    }
+
+    function stopShare(id: string) {
+      const share = localShares.get(id);
+      if (!share) return;
+      localShares.delete(id);
+      share.track.onended = null;
+      share.track.stop();
+      for (const [remoteId, pc] of pcs) {
+        const sender = pc.getSenders().find((item) => item.track === share.track);
+        if (sender) pc.removeTrack(sender);
+        announce(remoteId, share, false);
+        renegotiate(remoteId);
+      }
+      paintScreens();
+    }
+
+    roomApi.current = { share: () => void shareScreen(), stop: stopShare };
 
     function publish(remoteId: string) {
       const video = videos.get(remoteId);
@@ -135,7 +285,14 @@ export function CallRoom({
           const params = sender.getParameters();
           if (!params.encodings?.length) params.encodings = [{}];
           const encoding = params.encodings[0];
-          if (track.kind === "video") {
+          const shared = [...localShares.values()].some((share) => share.track === track);
+          if (track.kind === "video" && shared) {
+            track.contentHint = "detail";
+            params.degradationPreference = "maintain-resolution";
+            encoding.maxBitrate = 4_000_000;
+            encoding.maxFramerate = 15;
+            encoding.scaleResolutionDownBy = 1;
+          } else if (track.kind === "video") {
             track.contentHint = "motion";
             params.degradationPreference = "maintain-framerate";
             encoding.maxBitrate = 2_500_000;
@@ -162,7 +319,15 @@ export function CallRoom({
         rtcpMuxPolicy: "require",
       });
       pcs.set(remoteId, pc);
-      stream?.getTracks().forEach((track) => pc.addTrack(track));
+      stream?.getTracks().forEach((track) => {
+        if (!pc.getSenders().some((sender) => sender.track === track)) pc.addTrack(track);
+      });
+      for (const share of localShares.values()) {
+        if (!pc.getSenders().some((sender) => sender.track === share.track)) {
+          pc.addTrack(share.track, share.stream);
+        }
+        announce(remoteId, share, true);
+      }
       pc.onicecandidate = (event) => {
         if (!event.candidate) return;
         void post({
@@ -173,8 +338,18 @@ export function CallRoom({
       };
       pc.ontrack = (event) => {
         const incoming = event.track;
-        const mine = stream?.getTracks().some((track) => track.id === incoming.id);
+        const mine =
+          stream?.getTracks().some((track) => track.id === incoming.id) ||
+          [...localShares.values()].some((share) => share.track.id === incoming.id);
         if (mine) return;
+        if (incoming.kind === "video") {
+          const streamId = event.streams[0]?.id ?? incoming.id;
+          trackOwners.set(streamId, { remoteId, track: incoming });
+          if (remoteScreenIds.has(streamId) || looksLikeScreen(incoming)) {
+            showRemoteScreen(remoteId, streamId, incoming, screenLabels.get(streamId) ?? prettyScreen(incoming.label));
+            return;
+          }
+        }
         const bucket = incoming.kind === "audio" ? audios : videos;
         const remoteStream = bucket.get(remoteId) ?? new MediaStream();
         bucket.set(remoteId, remoteStream);
@@ -258,6 +433,7 @@ export function CallRoom({
         await pc.setLocalDescription(answer);
         await tune(pc);
         await post({ toId: signal.fromId, kind: "answer", payload: JSON.stringify(answer) });
+        settle(signal.fromId);
         return;
       }
 
@@ -267,6 +443,33 @@ export function CallRoom({
         await pc.setRemoteDescription(JSON.parse(signal.payload) as RTCSessionDescriptionInit);
         await flushIce(signal.fromId);
         await tune(pc);
+        settle(signal.fromId);
+        return;
+      }
+
+      if (signal.kind === "share") {
+        try {
+          const info = JSON.parse(signal.payload) as { streamId?: string; label?: string; active?: boolean };
+          if (!info.streamId) return;
+          const owned = trackOwners.get(info.streamId);
+          if (info.active === false) {
+            remoteScreenIds.delete(info.streamId);
+            screenLabels.delete(info.streamId);
+            remoteTiles.delete(info.streamId);
+            if (owned) {
+              videos.get(owned.remoteId)?.removeTrack(owned.track);
+              publish(owned.remoteId);
+            }
+            paintScreens();
+            return;
+          }
+          const label = prettyScreen(info.label ?? "", remoteTiles.size + 1);
+          remoteScreenIds.add(info.streamId);
+          screenLabels.set(info.streamId, label);
+          if (owned) showRemoteScreen(signal.fromId, info.streamId, owned.track, label);
+        } catch {
+          // Ignore a share notice this browser cannot read.
+        }
       }
     }
 
@@ -288,6 +491,14 @@ export function CallRoom({
         });
         return changed ? next : current;
       });
+      let renamed = false;
+      for (const [tileId, tile] of remoteTiles) {
+        const nextName = names.get(tile.peerId);
+        if (!nextName || nextName === tile.name) continue;
+        remoteTiles.set(tileId, { ...tile, name: nextName });
+        renamed = true;
+      }
+      if (renamed) paintScreens();
       const live = new Set(peers.map((peer) => peer.peerId));
       for (const [remoteId, pc] of pcs) {
         if (!live.has(remoteId)) {
@@ -295,6 +506,10 @@ export function CallRoom({
           pcs.delete(remoteId);
           videos.delete(remoteId);
           audios.delete(remoteId);
+          for (const [tileId, tile] of remoteTiles) {
+            if (tile.peerId === remoteId) remoteTiles.delete(tileId);
+          }
+          paintScreens();
           setRemotes((current) => current.filter((item) => item.peerId !== remoteId));
         }
       }
@@ -397,7 +612,9 @@ export function CallRoom({
       cancelled = true;
       window.clearTimeout(timer);
       window.removeEventListener("pagehide", leave);
+      roomApi.current = { share: () => undefined, stop: () => undefined };
       leave();
+      setScreens([]);
     };
   }, [code, started, ended]);
 
@@ -507,8 +724,15 @@ export function CallRoom({
         <p className="text-sm text-background/70">{alone ? "Waiting for the other person" : `${remotes.length + 1} here`}</p>
       </header>
 
-      <div className="flex flex-1 px-4 pb-32 sm:px-5">
-        <div className="relative grid h-full min-h-[32rem] w-full grid-cols-2 overflow-hidden rounded-[28px] bg-black">
+      <div className="flex flex-1 flex-col gap-3 px-4 pb-32 sm:px-5">
+        {screens.length > 0 ? (
+          <div className="grid max-h-[46vh] gap-3 overflow-y-auto sm:grid-cols-2">
+            {screens.map((tile) => (
+              <ScreenView key={tile.id} tile={tile} onStop={(id) => roomApi.current.stop(id)} />
+            ))}
+          </div>
+        ) : null}
+        <div className="relative grid h-full min-h-[32rem] w-full flex-1 grid-cols-2 overflow-hidden rounded-[28px] bg-black">
           <Pane
             seat={hostSeat}
             position="Host"
@@ -557,6 +781,13 @@ export function CallRoom({
         >
           {cameraOn ? "Camera off" : "Camera on"}
         </button>
+        <button
+          type="button"
+          onClick={() => roomApi.current.share()}
+          className="h-12 rounded-full bg-gold px-5 text-sm font-medium text-foreground"
+        >
+          {screens.some((tile) => tile.local) ? "Share another screen" : "Share a screen"}
+        </button>
         <Link
           href={leaveHref}
           className="inline-flex h-12 items-center rounded-full bg-clay px-5 text-sm font-medium text-background"
@@ -565,6 +796,68 @@ export function CallRoom({
         </Link>
       </div>
     </div>
+  );
+}
+
+function looksLikeScreen(track: MediaStreamTrack) {
+  if (track.contentHint === "detail") return true;
+  const label = track.label.toLowerCase();
+  return (
+    label.includes("screen") ||
+    label.includes("window") ||
+    label.includes("monitor") ||
+    label.includes("display") ||
+    label.startsWith("web-contents")
+  );
+}
+
+function prettyScreen(label: string, index = 1) {
+  const clean = label
+    .replace(/^screen:\d+:\d+$/i, "")
+    .replace(/^window:\d+:\d+$/i, "")
+    .trim();
+  return clean || `Screen ${index}`;
+}
+
+function ScreenView({ tile, onStop }: { tile: ScreenTile; onStop: (id: string) => void }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    video.muted = true;
+    video.defaultMuted = true;
+    video.volume = 0;
+    video.srcObject = tile.stream;
+    const play = () => {
+      video.muted = true;
+      video.volume = 0;
+      void video.play().catch(() => undefined);
+    };
+    play();
+    const tracks = tile.stream.getTracks();
+    for (const track of tracks) track.addEventListener("unmute", play);
+    return () => {
+      for (const track of tracks) track.removeEventListener("unmute", play);
+    };
+  }, [tile.stream]);
+
+  return (
+    <figure className="overflow-hidden rounded-2xl border border-white/15 bg-black">
+      <div className="relative aspect-video">
+        <video ref={videoRef} autoPlay playsInline muted className="absolute inset-0 h-full w-full object-contain" />
+      </div>
+      <figcaption className="flex items-center justify-between gap-3 bg-[#0c1a14] px-3 py-2">
+        <span className="truncate text-sm">
+          {tile.name} · {tile.label}
+        </span>
+        {tile.local ? (
+          <button type="button" onClick={() => onStop(tile.id)} className="shrink-0 text-sm font-medium text-gold">
+            Stop
+          </button>
+        ) : null}
+      </figcaption>
+    </figure>
   );
 }
 

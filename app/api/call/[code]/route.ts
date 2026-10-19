@@ -2,7 +2,7 @@ import { connection } from "next/server";
 import { CALL_LIMIT, callMember, freshPeers } from "@/lib/call";
 import { prisma } from "@/lib/prisma";
 
-const KINDS = new Set(["offer", "answer", "ice"]);
+const KINDS = new Set(["offer", "answer", "ice", "share"]);
 
 export async function GET(request: Request, context: { params: Promise<{ code: string }> }) {
   await connection();
