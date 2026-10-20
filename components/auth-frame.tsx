@@ -25,15 +25,17 @@ export function AuthFrame({
   const aside = ASIDE[mode];
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-5">
-      <header className="site-header">
-        <Logo />
-        <ModeSwitch mode={mode} />
-        <Link href={alternate.href} className="text-sm font-medium transition hover:text-accent">
-          {alternate.label}
-        </Link>
+    <div className="flex w-full flex-1 flex-col">
+      <header className="site-header site-header--with-mode">
+        <div className="mode-header-bar">
+          <Logo />
+          <ModeSwitch mode={mode} />
+          <Link href={alternate.href} className="shrink-0 text-sm font-medium transition hover:text-accent">
+            {alternate.label}
+          </Link>
+        </div>
       </header>
-      <main className="grid flex-1 items-center gap-8 py-8 lg:grid-cols-[0.85fr_1.15fr] lg:py-14">
+      <main className="mx-auto grid w-full max-w-6xl flex-1 content-start items-start gap-8 px-4 py-8 sm:px-5 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:items-center lg:py-14 xl:max-w-7xl">
         <aside className="rise relative hidden overflow-hidden rounded-[2rem] bg-forest p-10 text-background lg:block">
           <div className="orb absolute -right-12 -top-12 h-40 w-40 rounded-full bg-gold/25" />
           <div className="relative">

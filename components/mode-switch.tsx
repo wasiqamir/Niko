@@ -1,26 +1,23 @@
 import Link from "next/link";
 
+const options = [
+  { href: "/signup", mode: "individual", label: "Individual" },
+  { href: "/teams", mode: "teams", label: "Teams" },
+] as const;
+
 export function ModeSwitch({ mode = "home" }: { mode?: "home" | "individual" | "teams" }) {
   return (
-    <nav aria-label="Account kind" className="inline-flex rounded-full border border-line bg-surface/80 p-1 shadow-sm">
-      <Link
-        href="/signup"
-        aria-current={mode === "individual" ? "page" : undefined}
-        className={`rounded-full px-3 py-2 text-sm font-medium transition sm:px-4 ${
-          mode === "individual" ? "bg-forest text-background" : "text-foreground hover:bg-foam"
-        }`}
-      >
-        Individual
-      </Link>
-      <Link
-        href="/teams"
-        aria-current={mode === "teams" ? "page" : undefined}
-        className={`rounded-full px-3 py-2 text-sm font-medium transition sm:px-4 ${
-          mode === "teams" ? "bg-forest text-background" : "text-foreground hover:bg-foam"
-        }`}
-      >
-        Teams
-      </Link>
+    <nav aria-label="Account kind" className="mode-switch">
+      {options.map((option) => (
+        <Link
+          key={option.mode}
+          href={option.href}
+          aria-current={mode === option.mode ? "page" : undefined}
+          className={mode === option.mode ? "is-current" : undefined}
+        >
+          {option.label}
+        </Link>
+      ))}
     </nav>
   );
 }

@@ -20,38 +20,44 @@ async function PublicHome() {
   if (user) redirect("/home");
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-5">
-      <header className="site-header">
-        <Logo />
-        <ModeSwitch />
-        <Link
-          href="/login"
-          className="inline-flex h-10 items-center rounded-full px-4 text-sm font-medium transition hover:bg-foreground hover:text-background"
-        >
-          Log in
-        </Link>
+    <div className="flex w-full flex-1 flex-col">
+      <header className="site-header site-header--with-mode">
+        <div className="mode-header-bar">
+          <Logo />
+          <ModeSwitch />
+          <Link
+            href="/login"
+            className="inline-flex h-10 shrink-0 items-center rounded-full px-3.5 text-sm font-medium transition hover:bg-foreground hover:text-background sm:px-4"
+          >
+            Log in
+          </Link>
+        </div>
       </header>
 
-      <main className="grid flex-1 items-center gap-10 py-12 lg:grid-cols-[1.15fr_0.85fr] lg:py-20">
-        <section className="rise">
-          <p className="text-xs font-medium tracking-[0.28em] text-accent uppercase">Niko</p>
-          <h1 className="mt-5 max-w-xl font-serif text-4xl leading-[0.98] tracking-tight sm:text-6xl sm:leading-[0.95] lg:text-7xl">
+      <main className="mx-auto grid w-full max-w-6xl flex-1 content-start items-start gap-8 px-4 py-8 sm:gap-10 sm:px-5 sm:py-12 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:items-center lg:gap-14 lg:py-16 xl:max-w-7xl xl:gap-16 xl:py-20">
+        <section className="rise min-w-0">
+          <p className="text-[0.7rem] font-medium tracking-[0.22em] text-accent uppercase sm:text-xs sm:tracking-[0.28em]">
+            Niko
+          </p>
+          <h1 className="mt-4 max-w-xl text-balance font-serif text-[2.35rem] leading-[1.02] tracking-tight min-[380px]:text-4xl sm:mt-5 sm:text-5xl sm:leading-[0.98] lg:text-6xl xl:text-7xl xl:leading-[0.95]">
             Your meetings live here.
           </h1>
-          <div className="gold-rule mt-6" />
-          <p className="rise rise-2 mt-6 max-w-md text-lg leading-8 text-muted">
+          <div className="gold-rule mt-5 sm:mt-6" />
+          <p className="rise rise-2 mt-5 max-w-md text-base leading-7 text-muted sm:mt-6 sm:text-lg sm:leading-8">
             Choose Individual to open your own account, or Teams to open an account for a group. Both
             are free, and both start after you confirm your email.
           </p>
         </section>
 
-        <aside className="rise rise-3 relative overflow-hidden rounded-[2rem] bg-forest p-8 text-background shadow-2xl sm:p-10">
+        <aside className="rise rise-3 relative min-w-0 overflow-hidden rounded-[1.5rem] bg-forest p-6 text-background shadow-2xl sm:rounded-[2rem] sm:p-8 lg:p-10">
           <div className="orb absolute -right-16 -top-16 h-48 w-48 rounded-full bg-accent/40" />
           <div className="orb absolute -bottom-16 left-8 h-40 w-40 rounded-full bg-gold/20 [animation-delay:-8s]" />
           <div className="relative">
             <p className="text-xs uppercase tracking-[0.22em] text-gold">The hour</p>
-            <p className="mt-4 font-serif text-3xl leading-tight tracking-tight sm:text-4xl">Held quietly, then shared.</p>
-            <ol className="mt-8 flex flex-col gap-5">
+            <p className="mt-4 text-balance font-serif text-[1.7rem] leading-tight tracking-tight sm:text-3xl lg:text-4xl">
+              Held quietly, then shared.
+            </p>
+            <ol className="mt-6 flex flex-col gap-4 sm:mt-8 sm:gap-5">
               {[
                 ["01", "Choose Individual or Teams"],
                 ["02", "Confirm the email Niko sends"],
